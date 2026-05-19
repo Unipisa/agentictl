@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cmd="${1:-}"
+shift || true
+
+case "$cmd" in
+  show)
+    unit="${1:-unknown.service}"
+    cat <<STATUS
+Id=$unit
+LoadState=loaded
+ActiveState=active
+SubState=running
+ExecMainPID=1234
+RestartUSec=100ms
+MemoryCurrent=1048576
+NRestarts=0
+STATUS
+    ;;
+  restart)
+    unit="${1:-unknown.service}"
+    printf '%s\n' "$unit" >> /var/log/agentictl-test-systemctl-restart.log
+    ;;
+  is-active)
+    if [[ "${1:-}" == "--quiet" ]]; then
+      exit 0
+    fi
+    printf 'active\n'
+    ;;
+  *)
+    printf 'unsupported fake systemctl command: %s\n' "$cmd" >&2
+    exit 1
+    ;;
+esac

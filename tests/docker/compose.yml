@@ -1,0 +1,53 @@
+services:
+  keygen:
+    image: agentictl-test:local
+    build:
+      context: ../..
+      dockerfile: tests/docker/Dockerfile
+    command: ["/src/tests/docker/scripts/generate-keys.sh"]
+    volumes:
+      - agentictl-test-keys:/keys
+    networks:
+      - safe-internal
+
+  node:
+    image: agentictl-test:local
+    build:
+      context: ../..
+      dockerfile: tests/docker/Dockerfile
+    command: ["/src/tests/docker/scripts/node-entrypoint.sh"]
+    depends_on:
+      keygen:
+        condition: service_completed_successfully
+    volumes:
+      - agentictl-test-keys:/keys
+    networks:
+      safe-internal:
+        aliases:
+          - node
+    healthcheck:
+      test: ["CMD-SHELL", "ssh-keyscan -T 1 localhost >/dev/null 2>&1"]
+      interval: 1s
+      timeout: 2s
+      retries: 30
+
+  runner:
+    image: agentictl-test:local
+    build:
+      context: ../..
+      dockerfile: tests/docker/Dockerfile
+    command: ["/src/tests/docker/scripts/runner.sh"]
+    depends_on:
+      node:
+        condition: service_healthy
+    volumes:
+      - agentictl-test-keys:/keys
+    networks:
+      - safe-internal
+
+networks:
+  safe-internal:
+    internal: true
+
+volumes:
+  agentictl-test-keys:

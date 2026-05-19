@@ -1,0 +1,340 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+BASE_DIR="${AGENTICTL_BASE_DIR:-${OPENCLAW_BASE_DIR:-/opt/agentictl}}"
+POLICY_FILE="${AGENTICTL_POLICY_FILE:-${OPENCLAW_POLICY_FILE:-$BASE_DIR/config/policy.env}}"
+
+ALLOWED_UNITS_REGEX='^[a-zA-Z0-9_.@-]+\.service$'
+MAX_LINES=2000
+DEFAULT_ALLOW_READ_ROOTS="/var/log /etc"
+DEFAULT_ALLOW_LOG_ROOTS="/var/log"
+DEFAULT_DENY_READ_PATHS="/etc/shadow /etc/gshadow /etc/ssh /etc/ssl/private /etc/sudoers /etc/sudoers.d"
+DEFAULT_MAX_READ_BYTES=262144
+DEFAULT_MAX_LIST_ENTRIES=2000
+DEFAULT_MAX_LIST_DEPTH=5
+
+json_string() {
+  local value="${1-}"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//$'\n'/\\n}"
+  value="${value//$'\r'/\\r}"
+  value="${value//$'\t'/\\t}"
+  printf '"%s"' "$value"
+}
+
+fail() {
+  local code="$1"; shift
+  printf '{"ok":false,"error":%s}\n' "$(json_string "$*")"
+  exit "$code"
+}
+
+need_cmd() {
+  command -v "$1" >/dev/null 2>&1 || fail 70 "missing command: $1"
+}
+
+load_policy() {
+  if [[ -r "$POLICY_FILE" ]]; then
+    # shellcheck source=/dev/null
+    source "$POLICY_FILE"
+  fi
+  : "${ALLOW_READ_ROOTS:=$DEFAULT_ALLOW_READ_ROOTS}"
+  : "${ALLOW_LOG_ROOTS:=$DEFAULT_ALLOW_LOG_ROOTS}"
+  : "${DENY_READ_PATHS:=$DEFAULT_DENY_READ_PATHS}"
+  : "${AGENTICTL_MAX_READ_BYTES:=$DEFAULT_MAX_READ_BYTES}"
+  : "${AGENTICTL_MAX_LIST_ENTRIES:=$DEFAULT_MAX_LIST_ENTRIES}"
+  : "${AGENTICTL_MAX_LIST_DEPTH:=$DEFAULT_MAX_LIST_DEPTH}"
+}
+
+for_space_words() {
+  local words="$1" callback="$2" item old_ifs
+  old_ifs="$IFS"
+  IFS=' '
+  for item in $words; do
+    IFS="$old_ifs"
+    "$callback" "$item"
+    IFS=' '
+  done
+  IFS="$old_ifs"
+}
+
+validate_since() {
+  [[ "${1:-}" =~ ^[0-9]+(m|h|d)$ ]] || fail 65 "invalid --since, use e.g. 30m, 2h, 1d"
+}
+
+validate_lines() {
+  [[ "${1:-}" =~ ^[0-9]+$ ]] || fail 65 "invalid --lines"
+  (( "$1" >= 1 && "$1" <= MAX_LINES )) || fail 65 "--lines out of range"
+}
+
+validate_positive_int() {
+  local value="$1" name="$2" max="$3"
+  [[ "$value" =~ ^[0-9]+$ ]] || fail 65 "invalid $name"
+  (( value >= 1 && value <= max )) || fail 65 "$name out of range"
+}
+
+resolve_existing_path() {
+  local path="$1"
+  [[ "$path" = /* ]] || fail 65 "path must be absolute"
+  [[ "$path" != *".."* ]] || fail 65 "parent-directory references are not allowed"
+  need_cmd readlink
+  readlink -f "$path" 2>/dev/null || fail 66 "path not found: $path"
+}
+
+is_under_one_root() {
+  local resolved="$1" roots="$2" root root_real
+  local old_ifs="$IFS"
+  IFS=' '
+  for root in $roots; do
+    IFS="$old_ifs"
+    [[ -n "$root" ]] || { IFS=' '; continue; }
+    root_real="$(readlink -f "$root" 2>/dev/null || true)"
+    if [[ -n "$root_real" && ( "$resolved" == "$root_real" || "$resolved" == "$root_real"/* ) ]]; then
+      IFS="$old_ifs"
+      return 0
+    fi
+    IFS=' '
+  done
+  IFS="$old_ifs"
+  return 1
+}
+
+is_denied_path() {
+  local resolved="$1" deny_path deny_real
+  local old_ifs="$IFS"
+  IFS=' '
+  for deny_path in $DENY_READ_PATHS; do
+    IFS="$old_ifs"
+    [[ -n "$deny_path" ]] || { IFS=' '; continue; }
+    deny_real="$(readlink -f "$deny_path" 2>/dev/null || true)"
+    if [[ -n "$deny_real" && ( "$resolved" == "$deny_real" || "$resolved" == "$deny_real"/* ) ]]; then
+      IFS="$old_ifs"
+      return 0
+    fi
+    IFS=' '
+  done
+  IFS="$old_ifs"
+  return 1
+}
+
+require_read_allowed() {
+  local resolved="$1" roots="${2:-$ALLOW_READ_ROOTS}"
+  if ! is_under_one_root "$resolved" "$roots"; then
+    fail 77 "path not under allowed read roots"
+  fi
+  if is_denied_path "$resolved"; then
+    fail 77 "path denied by DENY_READ_PATHS"
+  fi
+}
+
+file_type() {
+  local path="$1"
+  if [[ -d "$path" ]]; then printf 'directory'
+  elif [[ -f "$path" ]]; then printf 'file'
+  elif [[ -L "$path" ]]; then printf 'symlink'
+  else printf 'other'
+  fi
+}
+
+print_stat_json() {
+  local path="$1" comma="${2:-}"
+  local type size mode owner group mtime
+  type="$(file_type "$path")"
+  size="$(stat -c '%s' "$path")"
+  mode="$(stat -c '%a' "$path")"
+  owner="$(stat -c '%U' "$path")"
+  group="$(stat -c '%G' "$path")"
+  mtime="$(stat -c '%Y' "$path")"
+  printf '%s{"path":%s,"type":%s,"size":%s,"mode":%s,"owner":%s,"group":%s,"mtime":%s}' \
+    "$comma" \
+    "$(json_string "$path")" \
+    "$(json_string "$type")" \
+    "$size" \
+    "$(json_string "$mode")" \
+    "$(json_string "$owner")" \
+    "$(json_string "$group")" \
+    "$mtime"
+}
+
+read_file_limited() {
+  local path="$1" tail_lines="$2" max_bytes="$3" content
+  if [[ -n "$tail_lines" ]]; then
+    content="$(tail -n "$tail_lines" "$path" | head -c "$max_bytes")"
+  else
+    content="$(head -c "$max_bytes" "$path")"
+  fi
+  printf '%s' "$content"
+}
+
+cmd="${1:-}"; shift || true
+
+case "$cmd" in
+  capabilities)
+    printf '{"ok":true,"mode":"readonly","commands":["health","service-status","journal","dmesg","fs-list","fs-stat","fs-read","log-read","capabilities"]}\n'
+    ;;
+
+  health)
+    host="$(hostname 2>/dev/null || true)"
+    uptime_text="$(uptime 2>/dev/null || true)"
+    disk_text="$(df -h / 2>/dev/null | tail -1 || true)"
+    printf '{"ok":true,"host":%s,"uptime":%s,"disk":%s}\n' \
+      "$(json_string "$host")" \
+      "$(json_string "$uptime_text")" \
+      "$(json_string "$disk_text")"
+    ;;
+
+  journal)
+    need_cmd journalctl
+    unit=""; since="30m"; lines="500"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --unit) unit="${2:-}"; shift 2 ;;
+        --since) since="${2:-}"; shift 2 ;;
+        --lines) lines="${2:-}"; shift 2 ;;
+        *) fail 64 "unknown argument: $1" ;;
+      esac
+    done
+    [[ "$unit" =~ $ALLOWED_UNITS_REGEX ]] || fail 65 "invalid unit"
+    validate_since "$since"
+    validate_lines "$lines"
+    journalctl --no-pager --output=short-iso --unit "$unit" --since "$since ago" -n "$lines"
+    ;;
+
+  dmesg)
+    need_cmd dmesg
+    level="err,warn"; lines="500"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --level) level="${2:-}"; shift 2 ;;
+        --lines) lines="${2:-}"; shift 2 ;;
+        *) fail 64 "unknown argument: $1" ;;
+      esac
+    done
+    [[ "$level" =~ ^(emerg|alert|crit|err|warn|notice|info|debug)(,(emerg|alert|crit|err|warn|notice|info|debug))*$ ]] || fail 65 "invalid dmesg level"
+    validate_lines "$lines"
+    dmesg --level "$level" --ctime | tail -n "$lines"
+    ;;
+
+  service-status)
+    need_cmd systemctl
+    unit=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --unit) unit="${2:-}"; shift 2 ;;
+        *) fail 64 "unknown argument: $1" ;;
+      esac
+    done
+    [[ "$unit" =~ $ALLOWED_UNITS_REGEX ]] || fail 65 "invalid unit"
+    systemctl show "$unit" --property=Id,LoadState,ActiveState,SubState,ExecMainPID,RestartUSec,MemoryCurrent,NRestarts --no-pager
+    ;;
+
+  fs-list)
+    load_policy
+    need_cmd find
+    need_cmd sort
+    need_cmd stat
+    path=""; max_depth="1"; limit="200"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --path) path="${2:-}"; shift 2 ;;
+        --max-depth) max_depth="${2:-}"; shift 2 ;;
+        --limit) limit="${2:-}"; shift 2 ;;
+        *) fail 64 "unknown argument: $1" ;;
+      esac
+    done
+    [[ -n "$path" ]] || fail 65 "--path is required"
+    validate_positive_int "$max_depth" "--max-depth" "$AGENTICTL_MAX_LIST_DEPTH"
+    validate_positive_int "$limit" "--limit" "$AGENTICTL_MAX_LIST_ENTRIES"
+    resolved="$(resolve_existing_path "$path")"
+    [[ -d "$resolved" ]] || fail 65 "fs-list requires a directory"
+    require_read_allowed "$resolved" "$ALLOW_READ_ROOTS"
+    printf '{"ok":true,"path":%s,"max_depth":%s,"limit":%s,"entries":[' "$(json_string "$resolved")" "$max_depth" "$limit"
+    count=0
+    comma=""
+    while IFS= read -r -d '' entry; do
+      if ! is_under_one_root "$entry" "$ALLOW_READ_ROOTS"; then
+        continue
+      fi
+      if is_denied_path "$entry"; then
+        continue
+      fi
+      print_stat_json "$entry" "$comma"
+      comma=","
+      count=$((count + 1))
+      (( count >= limit )) && break
+    done < <(find "$resolved" -maxdepth "$max_depth" -mindepth 1 -print0 2>/dev/null | sort -z)
+    printf '],"truncated":%s}\n' "$([[ "$count" -ge "$limit" ]] && printf true || printf false)"
+    ;;
+
+  fs-stat)
+    load_policy
+    need_cmd stat
+    path=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --path) path="${2:-}"; shift 2 ;;
+        *) fail 64 "unknown argument: $1" ;;
+      esac
+    done
+    [[ -n "$path" ]] || fail 65 "--path is required"
+    resolved="$(resolve_existing_path "$path")"
+    require_read_allowed "$resolved" "$ALLOW_READ_ROOTS"
+    printf '{"ok":true,"entry":'
+    print_stat_json "$resolved"
+    printf '}\n'
+    ;;
+
+  fs-read)
+    load_policy
+    path=""; tail_lines=""; max_bytes="$AGENTICTL_MAX_READ_BYTES"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --path) path="${2:-}"; shift 2 ;;
+        --tail) tail_lines="${2:-}"; shift 2 ;;
+        --max-bytes) max_bytes="${2:-}"; shift 2 ;;
+        *) fail 64 "unknown argument: $1" ;;
+      esac
+    done
+    [[ -n "$path" ]] || fail 65 "--path is required"
+    validate_positive_int "$max_bytes" "--max-bytes" "$AGENTICTL_MAX_READ_BYTES"
+    [[ -z "$tail_lines" ]] || validate_positive_int "$tail_lines" "--tail" "$MAX_LINES"
+    resolved="$(resolve_existing_path "$path")"
+    [[ -f "$resolved" ]] || fail 65 "fs-read requires a regular file"
+    require_read_allowed "$resolved" "$ALLOW_READ_ROOTS"
+    content="$(read_file_limited "$resolved" "$tail_lines" "$max_bytes")"
+    printf '{"ok":true,"path":%s,"bytes":%s,"content":%s}\n' \
+      "$(json_string "$resolved")" \
+      "$(printf '%s' "$content" | wc -c | tr -d ' ')" \
+      "$(json_string "$content")"
+    ;;
+
+  log-read)
+    load_policy
+    path=""; tail_lines="200"; max_bytes="$AGENTICTL_MAX_READ_BYTES"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --path) path="${2:-}"; shift 2 ;;
+        --tail) tail_lines="${2:-}"; shift 2 ;;
+        --max-bytes) max_bytes="${2:-}"; shift 2 ;;
+        *) fail 64 "unknown argument: $1" ;;
+      esac
+    done
+    [[ -n "$path" ]] || fail 65 "--path is required"
+    validate_positive_int "$tail_lines" "--tail" "$MAX_LINES"
+    validate_positive_int "$max_bytes" "--max-bytes" "$AGENTICTL_MAX_READ_BYTES"
+    resolved="$(resolve_existing_path "$path")"
+    [[ -f "$resolved" ]] || fail 65 "log-read requires a regular file"
+    require_read_allowed "$resolved" "$ALLOW_LOG_ROOTS"
+    content="$(read_file_limited "$resolved" "$tail_lines" "$max_bytes")"
+    printf '{"ok":true,"path":%s,"tail":%s,"bytes":%s,"content":%s}\n' \
+      "$(json_string "$resolved")" \
+      "$tail_lines" \
+      "$(printf '%s' "$content" | wc -c | tr -d ' ')" \
+      "$(json_string "$content")"
+    ;;
+
+  *)
+    fail 64 "usage: agentictl-readonly {capabilities|health|journal|dmesg|service-status|fs-list|fs-stat|fs-read|log-read}"
+    ;;
+esac

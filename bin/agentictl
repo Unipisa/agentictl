@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+BASE_DIR="${AGENTICTL_BASE_DIR:-${OPENCLAW_BASE_DIR:-/opt/agentictl}}"
+AUDIT_LOG="${AGENTICTL_AUDIT_LOG:-${OPENCLAW_AUDIT_LOG:-$BASE_DIR/state/audit.log}}"
+MAX_ORIGINAL_COMMAND_BYTES="${AGENTICTL_MAX_ORIGINAL_COMMAND_BYTES:-${OPENCLAW_MAX_ORIGINAL_COMMAND_BYTES:-4096}}"
+TOKEN_REGEX='^[A-Za-z0-9_./@:+,=-]+$'
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+json_string() {
+  local value="${1-}"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//$'\n'/\\n}"
+  value="${value//$'\r'/\\r}"
+  value="${value//$'\t'/\\t}"
+  printf '"%s"' "$value"
+}
+
+fail() {
+  local code="$1"; shift
+  audit "deny" "${1-}" "$code" || true
+  printf '{"ok":false,"error":%s}\n' "$(json_string "$*")"
+  exit "$code"
+}
+
+audit() {
+  local event="${1:-unknown}" detail="${2:-}" result="${3:-}"
+  mkdir -p "$(dirname "$AUDIT_LOG")" 2>/dev/null || return 0
+  printf '{"ts":%s,"actor":%s,"event":%s,"detail":%s,"result":%s}\n' \
+    "$(json_string "$(date --iso-8601=seconds 2>/dev/null || date)")" \
+    "$(json_string "${USER:-unknown}")" \
+    "$(json_string "$event")" \
+    "$(json_string "$detail")" \
+    "$(json_string "$result")" >> "$AUDIT_LOG" 2>/dev/null || true
+}
+
+usage() {
+  cat <<'USAGE'
+{"ok":false,"error":"usage: agentictl {readonly|act} <command tokens>; over SSH, pass the command as SSH_ORIGINAL_COMMAND"}
+USAGE
+}
+
+mode="${1:-readonly}"
+if [[ "$mode" == "readonly" || "$mode" == "act" ]]; then
+  shift || true
+else
+  fail 64 "invalid mode: $mode"
+fi
+
+if [[ $# -gt 0 ]]; then
+  argv=("$@")
+else
+  original="${SSH_ORIGINAL_COMMAND:-}"
+  [[ -n "$original" ]] || { usage; exit 64; }
+  [[ "${#original}" -le "$MAX_ORIGINAL_COMMAND_BYTES" ]] || fail 65 "SSH_ORIGINAL_COMMAND too long"
+  [[ "$original" != *$'\n'* && "$original" != *$'\r'* ]] || fail 65 "newlines are not allowed"
+  IFS=' ' read -r -a argv <<< "$original"
+fi
+
+[[ "${#argv[@]}" -gt 0 ]] || fail 64 "missing command"
+
+for token in "${argv[@]}"; do
+  [[ -n "$token" ]] || fail 65 "empty token is not allowed"
+  [[ "$token" =~ $TOKEN_REGEX ]] || fail 65 "unsafe token: $token"
+  [[ "$token" != *".."* ]] || fail 65 "parent-directory references are not allowed"
+done
+
+command_name="${argv[0]}"
+
+case "$mode:$command_name" in
+  readonly:capabilities|readonly:health|readonly:journal|readonly:dmesg|readonly:service-status|readonly:fs-list|readonly:fs-stat|readonly:fs-read|readonly:log-read)
+    audit "allow" "$mode:$command_name" "dispatch"
+    exec "$SCRIPT_DIR/agentictl-readonly" "${argv[@]}"
+    ;;
+  act:capabilities|act:service-restart|act:package-install|act:config-stage|act:config-apply)
+    audit "allow" "$mode:$command_name" "dispatch"
+    exec "$SCRIPT_DIR/agentictl-act" "${argv[@]}"
+    ;;
+  *)
+    fail 64 "command not allowed in $mode mode: $command_name"
+    ;;
+esac

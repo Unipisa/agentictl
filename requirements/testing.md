@@ -1,0 +1,29 @@
+# Testing Requirements
+
+## Default Test
+
+`make test` must run the Docker SSH end-to-end harness.
+
+The harness must use a Docker Compose internal network and must not publish the managed node's SSH port on the host.
+
+## Required Coverage
+
+The Docker test suite must cover:
+
+- Key generation.
+- Node installation.
+- Forced-command SSH for read-only mode.
+- Forced-command SSH for action mode.
+- Policy denial.
+- Unsafe token denial.
+- Dry-run behavior.
+- At least one execute path.
+- Config staging and config apply.
+- Filesystem list/stat/read under allowed roots.
+- Log read under allowed log roots.
+- Denial of sensitive filesystem paths.
+- Inventory add/list and reading snapshot storage in local tests.
+
+## Local Unit Test
+
+`make unit-test` may run script-level tests directly on Linux or Git Bash. It is secondary to the Docker end-to-end suite.
