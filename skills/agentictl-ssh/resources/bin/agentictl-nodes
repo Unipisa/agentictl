@@ -1,0 +1,267 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+WORKSPACE_DIR="${AGENTICTL_WORKSPACE_DIR:-$PWD}"
+INVENTORY_FILE="${AGENTICTL_NODES_FILE:-$WORKSPACE_DIR/inventory/agentictl-nodes.tsv}"
+ROLES_DIR="${AGENTICTL_NODE_ROLES_DIR:-$WORKSPACE_DIR/inventory/roles}"
+READINGS_DIR="${AGENTICTL_READINGS_DIR:-$WORKSPACE_DIR/state/readings}"
+SAFE_ID_REGEX='^[A-Za-z0-9_.@:-]+$'
+
+json_string() {
+  local value="${1-}"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//$'\n'/\\n}"
+  value="${value//$'\r'/\\r}"
+  value="${value//$'\t'/\\t}"
+  printf '"%s"' "$value"
+}
+
+fail() {
+  local code="$1"; shift
+  printf '{"ok":false,"error":%s}\n' "$(json_string "$*")"
+  exit "$code"
+}
+
+usage() {
+  cat <<'USAGE'
+{"ok":false,"error":"usage: agentictl-nodes {list|add|role-set|role-show|check|record|history}"}
+USAGE
+}
+
+validate_id() {
+  local value="$1" name="$2"
+  [[ "$value" =~ $SAFE_ID_REGEX ]] || fail 65 "invalid $name"
+}
+
+ensure_inventory_dir() {
+  mkdir -p "$(dirname "$INVENTORY_FILE")"
+}
+
+ensure_readings_dir() {
+  mkdir -p "$READINGS_DIR"
+}
+
+ensure_roles_dir() {
+  mkdir -p "$ROLES_DIR"
+}
+
+role_file_for() {
+  local node="$1" safe
+  safe="${node//:/_}"
+  printf '%s/%s.md' "$ROLES_DIR" "$safe"
+}
+
+role_summary_for() {
+  local node="$1" file
+  file="$(role_file_for "$node")"
+  [[ -f "$file" ]] || return 0
+  head -c 160 "$file" | tr '\r\n\t' '   '
+}
+
+alias_exists() {
+  local alias="$1"
+  [[ -f "$INVENTORY_FILE" ]] || return 1
+  awk -F '\t' -v a="$alias" 'NF && $1 == a { found=1 } END { exit found ? 0 : 1 }' "$INVENTORY_FILE"
+}
+
+get_node_field() {
+  local alias="$1" field="$2"
+  awk -F '\t' -v a="$alias" -v f="$field" 'NF && $1 == a { print $f; found=1; exit } END { exit found ? 0 : 1 }' "$INVENTORY_FILE"
+}
+
+cmd="${1:-}"; shift || true
+
+case "$cmd" in
+  list)
+    printf '{"ok":true,"inventory":%s,"nodes":[' "$(json_string "$INVENTORY_FILE")"
+    comma=""
+    if [[ -f "$INVENTORY_FILE" ]]; then
+      while IFS=$'\t' read -r alias host user mode identity tags; do
+        [[ -n "${alias:-}" && "$alias" != "#"* ]] || continue
+        role_file="$(role_file_for "$alias")"
+        role_path=""
+        [[ -f "$role_file" ]] && role_path="$role_file"
+        role_summary="$(role_summary_for "$alias")"
+        printf '%s{"alias":%s,"host":%s,"user":%s,"mode":%s,"identity":%s,"tags":%s,"role_path":%s,"role_summary":%s}' \
+          "$comma" \
+          "$(json_string "$alias")" \
+          "$(json_string "${host:-}")" \
+          "$(json_string "${user:-}")" \
+          "$(json_string "${mode:-}")" \
+          "$(json_string "${identity:-}")" \
+          "$(json_string "${tags:-}")" \
+          "$(json_string "$role_path")" \
+          "$(json_string "$role_summary")"
+        comma=","
+      done < "$INVENTORY_FILE"
+    fi
+    printf ']}\n'
+    ;;
+
+  add)
+    alias=""; host=""; user="agentictl"; mode="readonly"; identity=""; tags=""; role=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --alias) alias="${2:-}"; shift 2 ;;
+        --host) host="${2:-}"; shift 2 ;;
+        --user) user="${2:-}"; shift 2 ;;
+        --mode) mode="${2:-}"; shift 2 ;;
+        --identity) identity="${2:-}"; shift 2 ;;
+        --tags) tags="${2:-}"; shift 2 ;;
+        --role) role="${2:-}"; shift 2 ;;
+        *) fail 64 "unknown argument: $1" ;;
+      esac
+    done
+    [[ -n "$alias" && -n "$host" ]] || fail 65 "--alias and --host are required"
+    validate_id "$alias" "--alias"
+    validate_id "$host" "--host"
+    validate_id "$user" "--user"
+    [[ "$mode" == "readonly" || "$mode" == "act" ]] || fail 65 "--mode must be readonly or act"
+    [[ "$identity" != *$'\t'* && "$tags" != *$'\t'* ]] || fail 65 "tabs are not allowed"
+    ensure_inventory_dir
+    alias_exists "$alias" && fail 77 "node alias already exists: $alias"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$alias" "$host" "$user" "$mode" "$identity" "$tags" >> "$INVENTORY_FILE"
+    if [[ -n "$role" ]]; then
+      ensure_roles_dir
+      printf '%s\n' "$role" > "$(role_file_for "$alias")"
+    fi
+    printf '{"ok":true,"action":"add","alias":%s,"host":%s,"mode":%s}\n' \
+      "$(json_string "$alias")" "$(json_string "$host")" "$(json_string "$mode")"
+    ;;
+
+  role-set)
+    node=""; description=""; source="manual"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --node) node="${2:-}"; shift 2 ;;
+        --description) description="${2:-}"; shift 2 ;;
+        --source) source="${2:-}"; shift 2 ;;
+        *) fail 64 "unknown argument: $1" ;;
+      esac
+    done
+    [[ -n "$node" ]] || fail 65 "--node is required"
+    validate_id "$node" "--node"
+    [[ "$source" != *$'\t'* ]] || fail 65 "tabs are not allowed"
+    [[ -n "$description" ]] || description="$(cat)"
+    [[ -n "$description" ]] || fail 65 "role description is required"
+    ensure_roles_dir
+    target="$(role_file_for "$node")"
+    {
+      printf '# agentictl node role: %s\n' "$node"
+      printf 'updated_utc: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      printf 'source: %s\n\n' "$source"
+      printf '%s\n' "$description"
+    } > "$target"
+    printf '{"ok":true,"action":"role-set","node":%s,"path":%s}\n' \
+      "$(json_string "$node")" \
+      "$(json_string "$target")"
+    ;;
+
+  role-show)
+    node=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --node) node="${2:-}"; shift 2 ;;
+        *) fail 64 "unknown argument: $1" ;;
+      esac
+    done
+    [[ -n "$node" ]] || fail 65 "--node is required"
+    validate_id "$node" "--node"
+    target="$(role_file_for "$node")"
+    [[ -f "$target" ]] || fail 66 "node role not found: $node"
+    content="$(cat "$target")"
+    printf '{"ok":true,"node":%s,"path":%s,"content":%s}\n' \
+      "$(json_string "$node")" \
+      "$(json_string "$target")" \
+      "$(json_string "$content")"
+    ;;
+
+  check)
+    alias=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --alias) alias="${2:-}"; shift 2 ;;
+        *) fail 64 "unknown argument: $1" ;;
+      esac
+    done
+    [[ -n "$alias" ]] || fail 65 "--alias is required"
+    validate_id "$alias" "--alias"
+    [[ -f "$INVENTORY_FILE" ]] || fail 66 "missing inventory: $INVENTORY_FILE"
+    alias_exists "$alias" || fail 66 "node alias not found: $alias"
+    host="$(get_node_field "$alias" 2)"
+    user="$(get_node_field "$alias" 3)"
+    identity="$(get_node_field "$alias" 5)"
+    ssh_args=(-o BatchMode=yes -o ConnectTimeout=5)
+    [[ -n "$identity" ]] && ssh_args+=(-i "$identity")
+    capabilities="$(ssh "${ssh_args[@]}" "$user@$host" capabilities)"
+    health="$(ssh "${ssh_args[@]}" "$user@$host" health)"
+    printf '{"ok":true,"alias":%s,"capabilities":%s,"health":%s}\n' \
+      "$(json_string "$alias")" \
+      "$(json_string "$capabilities")" \
+      "$(json_string "$health")"
+    ;;
+
+  record)
+    node=""; kind="reading"; source=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --node) node="${2:-}"; shift 2 ;;
+        --kind) kind="${2:-}"; shift 2 ;;
+        --source) source="${2:-}"; shift 2 ;;
+        *) fail 64 "unknown argument: $1" ;;
+      esac
+    done
+    [[ -n "$node" ]] || fail 65 "--node is required"
+    validate_id "$node" "--node"
+    validate_id "$kind" "--kind"
+    ensure_readings_dir
+    ts="$(date -u +%Y%m%dT%H%M%SZ)"
+    day="$(date -u +%Y-%m-%d)"
+    target_dir="$READINGS_DIR/$day/$node"
+    mkdir -p "$target_dir"
+    target="$target_dir/$ts-$kind.json"
+    content="$(cat)"
+    {
+      printf '{"ts":%s,"node":%s,"kind":%s,"source":%s,"content":%s}\n' \
+        "$(json_string "$ts")" \
+        "$(json_string "$node")" \
+        "$(json_string "$kind")" \
+        "$(json_string "$source")" \
+        "$(json_string "$content")"
+    } > "$target"
+    printf '{"ok":true,"path":%s}\n' "$(json_string "$target")"
+    ;;
+
+  history)
+    node=""; kind=""; limit="20"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --node) node="${2:-}"; shift 2 ;;
+        --kind) kind="${2:-}"; shift 2 ;;
+        --limit) limit="${2:-}"; shift 2 ;;
+        *) fail 64 "unknown argument: $1" ;;
+      esac
+    done
+    [[ -n "$node" ]] || fail 65 "--node is required"
+    validate_id "$node" "--node"
+    [[ "$limit" =~ ^[0-9]+$ && "$limit" -ge 1 && "$limit" -le 200 ]] || fail 65 "invalid --limit"
+    printf '{"ok":true,"node":%s,"readings":[' "$(json_string "$node")"
+    comma=""
+    if [[ -d "$READINGS_DIR" ]]; then
+      pattern="*$kind.json"
+      [[ -n "$kind" ]] || pattern="*.json"
+      while IFS= read -r path; do
+        printf '%s%s' "$comma" "$(json_string "$path")"
+        comma=","
+      done < <(find "$READINGS_DIR" -path "*/$node/$pattern" -type f | sort -r | head -n "$limit")
+    fi
+    printf ']}\n'
+    ;;
+
+  *)
+    usage
+    exit 64
+    ;;
+esac

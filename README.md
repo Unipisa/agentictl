@@ -81,6 +81,12 @@ ssh prod-gpu-01-ro package-list --limit 5000 | bin/agentictl-nodes record --node
 
 The skill also includes wrappers under `skills/agentictl-ssh/scripts/` so an agent can use inventory and SSH readings without rebuilding command sequences by hand.
 
+The skill is user-invocable in OpenClaw, so it can appear as `/agentictl_ssh`. When installed as a standalone skill folder, run:
+
+```bash
+skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh --bin-dir "$HOME/.local/bin"
+```
+
 ## Documentation
 
 - [Quickstart](docs/QUICKSTART.md): install, SSH usage, package, and tests.

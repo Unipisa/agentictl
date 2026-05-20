@@ -294,6 +294,14 @@ skills/agentictl-ssh/scripts/agentictl-node-tool.sh list
 skills/agentictl-ssh/scripts/agentictl-ssh-tool.sh --target prod-gpu-01-ro --record-kind health -- health
 ```
 
+The skill is user-invocable and can be exposed by OpenClaw as `/agentictl_ssh`. Slash invocations should still use the skill workflow and wrapper scripts; do not dispatch the slash command directly to raw `exec`.
+
+If you install only the skill folder, install its bundled local helper tools:
+
+```bash
+skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh --bin-dir "$HOME/.local/bin"
+```
+
 Use `agentictl-ssh-tool.sh --allow-execute` only after explicit approval for the specific action.
 
 For `/etc` file contents, prefer storing `fs-stat` snapshots unless the user explicitly asks to preserve file content. Logs are usually safe to store in bounded tails, but they can still contain secrets, so use small `--tail` and `--max-bytes` values.

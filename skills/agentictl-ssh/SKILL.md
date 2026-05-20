@@ -1,7 +1,8 @@
 ---
 name: agentictl_ssh
 description: Use agentictl over SSH to run allowlisted diagnostics and maintenance actions on managed Linux nodes.
-metadata: {"openclaw":{"requires":{"bins":["ssh"]}}}
+user-invocable: true
+metadata: {"openclaw":{"requires":{"bins":["ssh","bash"]}}}
 ---
 
 # agentictl SSH
@@ -32,6 +33,14 @@ skills/agentictl-ssh/scripts/agentictl-ssh-tool.sh --target prod-gpu-01-ro --rec
 ```
 
 Use `agentictl-node-tool.sh` for local inventory, role, and history operations. Use `agentictl-ssh-tool.sh` for SSH verbs because it validates tokens, can record successful readings, and refuses `--execute` unless `--allow-execute` is explicitly supplied. If the bundled scripts are unavailable, fall back to the raw `ssh` and `bin/agentictl-nodes` commands below.
+
+This skill is user-invocable, so OpenClaw can expose it as `/agentictl_ssh`. Treat slash input as a request to use this workflow, not as raw shell text. Do not configure this skill for direct `exec` dispatch.
+
+If only the skill folder is installed, install its bundled local tools first:
+
+```bash
+{baseDir}/resources/install/install-agentictl-skill-tools.sh --bin-dir "$HOME/.local/bin"
+```
 
 ## Read-Only Commands
 

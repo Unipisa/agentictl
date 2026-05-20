@@ -28,7 +28,7 @@ dist/agentictl-<version>.tar.gz
 
 The tarball must include source scripts, docs, requirements, tests, installer, and skill files.
 
-The OpenClaw-side helper `bin/agentictl-nodes` and bundled skill scripts under `skills/agentictl-ssh/scripts/` are included in the release tarball but are not installed on managed nodes by `install/install-node.sh`.
+The OpenClaw-side helper `bin/agentictl-nodes`, bundled skill scripts under `skills/agentictl-ssh/scripts/`, and self-contained skill resources under `skills/agentictl-ssh/resources/` are included in the release tarball but are not installed on managed nodes by `install/install-node.sh`.
 
 ## Backward Compatibility
 

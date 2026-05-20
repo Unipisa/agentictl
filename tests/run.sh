@@ -126,6 +126,15 @@ check_contains "$output" 'GPU inference node'
 output="$(bash "$SKILL_TOOL_DIR/agentictl-node-tool.sh" list)"
 check_contains "$output" '"alias":"node-ro"'
 
+diff -u "$ROOT/bin/agentictl-nodes" "$ROOT/skills/agentictl-ssh/resources/bin/agentictl-nodes" >/dev/null
+pass_count=$((pass_count + 1))
+
+output="$(bash "$ROOT/skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh" --bin-dir "$TMP_DIR/installed-bin")"
+check_contains "$output" '"ok":true'
+
+output="$("$TMP_DIR/installed-bin/agentictl-node-tool.sh" list)"
+check_contains "$output" '"alias":"node-ro"'
+
 output="$(printf 'GPU inference node with NVIDIA runtime and Ollama service\n' | "$ROOT/bin/agentictl-nodes" role-set --node node-ro --source test)"
 check_contains "$output" '"action":"role-set"'
 

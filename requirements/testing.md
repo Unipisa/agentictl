@@ -30,6 +30,7 @@ The Docker test suite must cover:
 - Denial of sensitive filesystem paths.
 - Inventory add/list, node role persistence, and reading snapshot storage in local tests.
 - Bundled skill tool wrappers for inventory operations, SSH recording, and `--execute` gating in local tests.
+- Self-contained skill resource installer and vendored `agentictl-nodes` consistency in local tests.
 
 ## Local Unit Test
 

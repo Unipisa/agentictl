@@ -109,6 +109,12 @@ skills/agentictl-ssh/scripts/agentictl-node-tool.sh list
 skills/agentictl-ssh/scripts/agentictl-ssh-tool.sh --target prod-gpu-01-ro --record-kind health -- health
 ```
 
+The skill is `user-invocable`, so OpenClaw can expose `/agentictl_ssh`. If you install only the skill folder, install its local helper tools from bundled resources:
+
+```bash
+skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh --bin-dir "$HOME/.local/bin"
+```
+
 ## Package
 
 ```bash

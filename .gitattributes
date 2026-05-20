@@ -3,6 +3,7 @@
 .gitattributes text eol=lf
 *.sh text eol=lf
 bin/* text eol=lf
+skills/*/resources/bin/* text eol=lf
 Makefile text eol=lf
 .gitignore text eol=lf
 *.yml text eol=lf

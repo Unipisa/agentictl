@@ -82,4 +82,11 @@ The OpenClaw skill must include bundled script tools for common node operations:
 - `agentictl-node-tool.sh`: local wrapper for inventory, role, record, and history operations.
 - `agentictl-ssh-tool.sh`: SSH wrapper for declared agentictl verbs with token validation, optional reading recording, and an explicit `--allow-execute` gate for commands containing `--execute`.
 
+The skill must be `user-invocable: true` so OpenClaw can expose it as `/agentictl_ssh`. Slash invocation must remain model-mediated unless a dedicated typed OpenClaw tool is implemented; it must not dispatch raw user input directly to `exec`.
+
+The skill must include self-contained resources for installing local helper scripts when only the skill folder is installed:
+
+- `resources/bin/agentictl-nodes`
+- `resources/install/install-agentictl-skill-tools.sh`
+
 The skill instructions should prefer these tools when available and document raw SSH as the fallback path.
