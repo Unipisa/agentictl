@@ -250,6 +250,9 @@ case "$cmd" in
     elif command -v apk >/dev/null 2>&1; then
       manager="apk"
       list_cmd=(apk info -v)
+    elif command -v pacman >/dev/null 2>&1; then
+      manager="pacman"
+      list_cmd=(pacman -Q)
     else
       fail 70 "no supported package database found"
     fi
@@ -261,6 +264,9 @@ case "$cmd" in
       if [[ "$manager" == "apk" ]]; then
         name="${line%-[0-9]*}"
         version="${line#"$name"-}"
+        status="installed"
+      elif [[ "$manager" == "pacman" ]]; then
+        IFS=' ' read -r name version <<< "$line"
         status="installed"
       else
         IFS=$'\t' read -r name version status <<< "$line"

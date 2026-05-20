@@ -78,6 +78,7 @@ Rules for changes:
 - Always run the matching `--dry-run` first.
 - Do not use `--execute` until the user has approved that specific target and action.
 - Treat "not allowed" errors as policy boundaries, not as prompts to bypass the executor.
+- For `package-install`, report the package manager returned by dry-run. Supported installers are `apt`, `dnf`, `yum`, `zypper`, `apk`, and `pacman`.
 - Report the JSON result and any backup path from `config-apply`.
 
 ## Failure Handling

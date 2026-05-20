@@ -18,6 +18,8 @@ The Docker test suite must cover:
 - Forced-command SSH for read-only mode.
 - Package inventory and kernel module inventory in read-only mode.
 - Forced-command SSH for action mode.
+- Package-install dry-run reports the selected package manager.
+- Package manager override coverage for supported installers in local tests.
 - Policy denial.
 - Unsafe token denial.
 - Dry-run behavior.

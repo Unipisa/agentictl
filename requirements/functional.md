@@ -38,6 +38,10 @@ Action verbs:
 - `config-stage --name NAME --dry-run|--execute`
 - `config-apply --target PATH --source /opt/agentictl/state/incoming/NAME --dry-run|--execute`
 
+`package-list` must support installed-package inventory from `dpkg-query`, `rpm`, `apk`, and `pacman` databases when available.
+
+`package-install` must support `apt-get`, `dnf`, `yum`, `zypper`, `apk`, and `pacman`. It may auto-detect the package manager or use `AGENTICTL_PACKAGE_MANAGER`/`OPENCLAW_PACKAGE_MANAGER` to select one explicitly. The selected manager must be reported in dry-run and execute JSON output.
+
 ## Output
 
 Machine-readable JSON is required for success and failure paths where practical. Log-streaming diagnostics may emit native command text when that is more useful, but argument validation failures must emit JSON with `ok:false`.

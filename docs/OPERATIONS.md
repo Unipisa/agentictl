@@ -81,6 +81,7 @@ Keep allowlists narrow:
 ```bash
 ALLOW_SERVICE_RESTART="ollama.service"
 ALLOW_PACKAGE_INSTALL="jq"
+AGENTICTL_PACKAGE_MANAGER=auto
 ALLOW_CONFIG_TARGETS="/etc/agentictl/runtime.yaml"
 AGENTICTL_MAX_CONFIG_BYTES=1048576
 ALLOW_READ_ROOTS="/var/log /etc"
@@ -103,6 +104,8 @@ ssh node-ro kernel-modules --limit 2000
 ```
 
 Save the intended node role locally with `bin/agentictl-nodes role-set`, then record package and module snapshots with `bin/agentictl-nodes record`. Package changes still go through `ssh node-act package-install --name PACKAGE --dry-run` and require explicit approval before `--execute`.
+
+`package-list` reads installed packages from `dpkg-query`, `rpm`, `apk`, or `pacman` when available. `package-install` supports `apt-get`, `dnf`, `yum`, `zypper`, `apk`, and `pacman`; dry-run and execute output include the selected manager. Auto-detection is normally enough, but a node policy can set `AGENTICTL_PACKAGE_MANAGER` or `OPENCLAW_PACKAGE_MANAGER` to one of `apt`, `dnf`, `yum`, `zypper`, `apk`, or `pacman`.
 
 ## Audit
 

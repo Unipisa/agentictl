@@ -21,7 +21,7 @@ The result is a small, auditable control surface that fits agent workflows witho
 
 - `agentictl`: forced-command SSH dispatcher.
 - `agentictl-readonly`: diagnostics such as `health`, `service-status`, `journal`, `dmesg`, package inventory, and loaded kernel modules.
-- `agentictl-act`: allowlisted actions such as `service-restart`, `package-install`, and staged config apply.
+- `agentictl-act`: allowlisted actions such as `service-restart`, multi-package-manager `package-install`, and staged config apply.
 - `agentictl-nodes`: local inventory and reading snapshot helper for OpenClaw workspaces.
 - Node installer for dedicated forced-command SSH users, with optional read-only/action Unix user separation.
 - Docker Compose end-to-end test harness with an internal-only network.

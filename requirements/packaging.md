@@ -9,6 +9,7 @@ The installer must:
 - Support `--split-users`, defaulting to `agentictl-ro` and `agentictl-act`.
 - Install binaries under `/opt/agentictl/bin`.
 - Install policy under `/opt/agentictl/config/policy.env`.
+- Include `AGENTICTL_PACKAGE_MANAGER=auto` in newly generated policy files.
 - Create state directories under `/opt/agentictl/state`.
 - Configure forced-command SSH keys.
 - Add a narrow sudoers entry for `/opt/agentictl/bin/agentictl-act *` only when an action public key is installed.

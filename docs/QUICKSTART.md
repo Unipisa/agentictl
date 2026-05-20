@@ -6,7 +6,7 @@ This guide covers local packaging, node installation, basic SSH usage, and tests
 
 - `bin/agentictl`: forced-command SSH dispatcher. It parses `SSH_ORIGINAL_COMMAND`, rejects unsafe tokens, and routes to the selected mode.
 - `bin/agentictl-readonly`: read-only diagnostics for health, logs, kernel messages, service status, package inventory, and loaded kernel modules.
-- `bin/agentictl-act`: controlled actions with allowlists, `--dry-run`, explicit `--execute`, config backups, staging, and audit log.
+- `bin/agentictl-act`: controlled actions with allowlists, `--dry-run`, explicit `--execute`, multi-package-manager install support, config backups, staging, and audit log.
 - `bin/agentictl-nodes`: local OpenClaw-side inventory and reading snapshot helper.
 - `install/install-node.sh`: node installer for dedicated forced-command SSH users.
 - `skills/agentictl-ssh/SKILL.md`: OpenClaw skill that teaches the agent how to use the safe SSH interface.

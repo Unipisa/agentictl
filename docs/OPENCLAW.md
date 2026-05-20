@@ -207,6 +207,7 @@ Expected behavior:
 
 - `capabilities` returns JSON with `"mode":"act"`.
 - The dry-run returns JSON with `"dry_run":true`.
+- Package dry-runs return the selected package manager, such as `"manager":"apt"`, `"manager":"dnf"`, `"manager":"zypper"`, `"manager":"apk"`, or `"manager":"pacman"`.
 
 Do not run `--execute` during installation verification unless you intentionally want the operation to happen:
 

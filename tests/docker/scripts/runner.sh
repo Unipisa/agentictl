@@ -94,6 +94,7 @@ check_fails ssh_ro package-install --name jq --dry-run
 
 output="$(ssh_act package-install --name jq --dry-run)"
 check_contains "$output" '"package":"jq"'
+check_contains "$output" '"manager":"apt"'
 
 output="$(printf 'runtime: docker\n' | ssh_act config-stage --name runtime.yaml --execute)"
 check_contains "$output" '"action":"config-stage"'

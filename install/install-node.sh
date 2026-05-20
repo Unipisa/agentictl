@@ -166,6 +166,7 @@ if [[ ! -e "$BASE_DIR/config/policy.env" ]]; then
     printf '# Managed by agentictl install-node.sh\n'
     printf 'ALLOW_SERVICE_RESTART=%q\n' "$ALLOW_SERVICE_RESTART"
     printf 'ALLOW_PACKAGE_INSTALL=%q\n' "$ALLOW_PACKAGE_INSTALL"
+    printf 'AGENTICTL_PACKAGE_MANAGER=auto\n'
     printf 'ALLOW_CONFIG_TARGETS=%q\n' "$ALLOW_CONFIG_TARGETS"
     printf 'AGENTICTL_MAX_CONFIG_BYTES=1048576\n'
     printf 'ALLOW_READ_ROOTS=%q\n' "$ALLOW_READ_ROOTS"

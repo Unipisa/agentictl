@@ -66,9 +66,9 @@ Agents may read logs and approved `/etc` paths, but must treat file contents as 
 
 Package inventory and loaded kernel modules are read-only diagnostics. They must:
 
-- Use package databases or `/proc/modules`, not arbitrary shell commands.
+- Use known package databases or `/proc/modules`, not arbitrary shell commands.
 - Enforce explicit result limits.
 - Return stable JSON for comparison over time.
 - Be treated as potentially sensitive operational metadata when stored locally.
 
-Automated package recommendations must compare the saved node role, current package inventory, loaded kernel modules, and historical readings. Package installation still requires the action mode allowlist, `--dry-run`, user approval, and `--execute`.
+Automated package recommendations must compare the saved node role, current package inventory, loaded kernel modules, and historical readings. Package installation still requires the action mode allowlist, package-manager detection or an explicit package-manager override, `--dry-run`, user approval, and `--execute`.

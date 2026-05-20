@@ -6,10 +6,18 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-mkdir -p "$TMP_DIR/config" "$TMP_DIR/state/incoming" "$TMP_DIR/readroot/etc" "$TMP_DIR/readroot/var/log"
+mkdir -p "$TMP_DIR/config" "$TMP_DIR/state/incoming" "$TMP_DIR/readroot/etc" "$TMP_DIR/readroot/var/log" "$TMP_DIR/fakebin"
 printf 'setting=true\n' > "$TMP_DIR/readroot/etc/app.conf"
 printf 'secret=true\n' > "$TMP_DIR/readroot/etc/secret.conf"
 printf 'line one\nline two\n' > "$TMP_DIR/readroot/var/log/app.log"
+cat > "$TMP_DIR/fakebin/apt-get" <<'FAKE_APT'
+#!/usr/bin/env bash
+printf 'fake apt-get %s\n' "$*"
+FAKE_APT
+chmod +x "$TMP_DIR/fakebin/apt-get"
+for fake_manager in dnf yum zypper apk pacman; do
+  cp "$TMP_DIR/fakebin/apt-get" "$TMP_DIR/fakebin/$fake_manager"
+done
 cat > "$TMP_DIR/config/policy.env" <<'POLICY'
 ALLOW_SERVICE_RESTART="ollama.service agentictl-agent.service"
 ALLOW_PACKAGE_INSTALL="htop jq"
@@ -27,6 +35,7 @@ POLICY
 
 export AGENTICTL_BASE_DIR="$TMP_DIR"
 export AGENTICTL_ACT_SUDO=never
+export PATH="$TMP_DIR/fakebin:$PATH"
 
 pass_count=0
 
@@ -56,6 +65,12 @@ check_contains "$output" '"dry_run":true'
 
 output="$(SSH_ORIGINAL_COMMAND='package-install --name htop --dry-run' "$ROOT/bin/agentictl" act)"
 check_contains "$output" '"package":"htop"'
+check_contains "$output" '"manager":"apt"'
+
+for package_manager in apt dnf yum zypper apk pacman; do
+  output="$(AGENTICTL_PACKAGE_MANAGER="$package_manager" "$ROOT/bin/agentictl" act package-install --name htop --dry-run)"
+  check_contains "$output" "\"manager\":\"$package_manager\""
+done
 
 check_fails env SSH_ORIGINAL_COMMAND='package-install --name curl --dry-run' "$ROOT/bin/agentictl" act
 check_fails env SSH_ORIGINAL_COMMAND='service-restart --unit ollama.service;uname -a --dry-run' "$ROOT/bin/agentictl" act

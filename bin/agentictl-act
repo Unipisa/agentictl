@@ -57,6 +57,77 @@ contains_word() {
   [[ "$haystack" == *" $needle "* ]]
 }
 
+detect_package_installer() {
+  local pkg="$1" requested="${AGENTICTL_PACKAGE_MANAGER:-${OPENCLAW_PACKAGE_MANAGER:-auto}}"
+  PACKAGE_MANAGER=""
+  PACKAGE_INSTALLER=()
+
+  case "$requested" in
+    auto) ;;
+    apt|apt-get)
+      need_cmd apt-get
+      PACKAGE_MANAGER="apt"
+      PACKAGE_INSTALLER=(apt-get install -y --no-install-recommends "$pkg")
+      return 0
+      ;;
+    dnf)
+      need_cmd dnf
+      PACKAGE_MANAGER="dnf"
+      PACKAGE_INSTALLER=(dnf install -y "$pkg")
+      return 0
+      ;;
+    yum)
+      need_cmd yum
+      PACKAGE_MANAGER="yum"
+      PACKAGE_INSTALLER=(yum install -y "$pkg")
+      return 0
+      ;;
+    zypper)
+      need_cmd zypper
+      PACKAGE_MANAGER="zypper"
+      PACKAGE_INSTALLER=(zypper --non-interactive install "$pkg")
+      return 0
+      ;;
+    apk)
+      need_cmd apk
+      PACKAGE_MANAGER="apk"
+      PACKAGE_INSTALLER=(apk add --no-cache "$pkg")
+      return 0
+      ;;
+    pacman)
+      need_cmd pacman
+      PACKAGE_MANAGER="pacman"
+      PACKAGE_INSTALLER=(pacman -S --noconfirm "$pkg")
+      return 0
+      ;;
+    *)
+      fail 65 "unsupported AGENTICTL_PACKAGE_MANAGER: $requested"
+      ;;
+  esac
+
+  if command -v apt-get >/dev/null 2>&1; then
+    PACKAGE_MANAGER="apt"
+    PACKAGE_INSTALLER=(apt-get install -y --no-install-recommends "$pkg")
+  elif command -v dnf >/dev/null 2>&1; then
+    PACKAGE_MANAGER="dnf"
+    PACKAGE_INSTALLER=(dnf install -y "$pkg")
+  elif command -v yum >/dev/null 2>&1; then
+    PACKAGE_MANAGER="yum"
+    PACKAGE_INSTALLER=(yum install -y "$pkg")
+  elif command -v zypper >/dev/null 2>&1; then
+    PACKAGE_MANAGER="zypper"
+    PACKAGE_INSTALLER=(zypper --non-interactive install "$pkg")
+  elif command -v apk >/dev/null 2>&1; then
+    PACKAGE_MANAGER="apk"
+    PACKAGE_INSTALLER=(apk add --no-cache "$pkg")
+  elif command -v pacman >/dev/null 2>&1; then
+    PACKAGE_MANAGER="pacman"
+    PACKAGE_INSTALLER=(pacman -S --noconfirm "$pkg")
+  else
+    fail 70 "no supported package manager found"
+  fi
+}
+
 audit() {
   local action="$1" target="$2" mode="$3" result="$4"
   printf '{"ts":%s,"actor":%s,"action":%s,"target":%s,"mode":%s,"result":%s}\n' \
@@ -141,17 +212,19 @@ case "$cmd" in
     done
     [[ "$pkg" =~ $ALLOWED_PACKAGES_REGEX ]] || fail 65 "invalid package name"
     contains_word "$pkg" "$ALLOW_PACKAGE_INSTALL" || fail 77 "package not allowed: $pkg"
+    detect_package_installer "$pkg"
     if [[ "$DRY_RUN" == "true" ]]; then
-      printf '{"ok":true,"dry_run":true,"action":"package-install","package":"%s"}\n' "$pkg"
+      printf '{"ok":true,"dry_run":true,"action":"package-install","package":"%s","manager":%s}\n' \
+        "$pkg" \
+        "$(json_string "$PACKAGE_MANAGER")"
       exit 0
     fi
     require_execute_flag
-    if command -v apt-get >/dev/null 2>&1; then installer=(apt-get install -y --no-install-recommends "$pkg")
-    elif command -v dnf >/dev/null 2>&1; then installer=(dnf install -y "$pkg")
-    else fail 70 "no supported package manager found"; fi
-    "${installer[@]}"
-    audit "package-install" "$pkg" "execute" "success"
-    printf '{"ok":true,"action":"package-install","package":"%s"}\n' "$pkg"
+    "${PACKAGE_INSTALLER[@]}"
+    audit "package-install" "$pkg" "execute" "manager=$PACKAGE_MANAGER"
+    printf '{"ok":true,"action":"package-install","package":"%s","manager":%s}\n' \
+      "$pkg" \
+      "$(json_string "$PACKAGE_MANAGER")"
     ;;
 
   config-stage)

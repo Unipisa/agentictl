@@ -110,6 +110,13 @@ Local helper verbs such as `role-set` and `role-show` should have tests for:
 - JSON output that exposes the saved path.
 - Reuse by later software-stack reasoning.
 
+When changing package-manager support:
+
+- Update both `package-list` and `package-install` when the platform has distinct inventory and install commands.
+- Keep package names constrained by the existing package-name validator and `ALLOW_PACKAGE_INSTALL`.
+- Report the selected package manager in dry-run and execute JSON.
+- Add local tests for explicit manager selection and Docker SSH tests for the default manager in the test image.
+
 ## Example Checklist
 
 For a new `service-reload` action:
