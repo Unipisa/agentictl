@@ -4,7 +4,7 @@ This guide explains how to add `agentictl` to OpenClaw and how to install node-s
 
 ## Overview
 
-`agentictl` is installed on each managed Linux node. OpenClaw reaches the node over SSH, but the remote account is not a general shell:
+`agentictl` is installed on each managed Linux node. OpenClaw reaches the node over SSH, but the remote accounts are not general shells:
 
 - A read-only key is forced to `/opt/agentictl/bin/agentictl readonly`.
 - An action key is forced to `/opt/agentictl/bin/agentictl act`.
@@ -71,7 +71,7 @@ scp ~/.ssh/agentictl_ro.pub admin@node.example.net:/tmp/agentictl_ro.pub
 scp ~/.ssh/agentictl_act.pub admin@node.example.net:/tmp/agentictl_act.pub
 ```
 
-The admin user is only needed for installation. Runtime access should use the dedicated `agentictl` user created by the installer.
+The admin user is only needed for installation. Runtime access should use the dedicated forced-command users created by the installer, normally `agentictl-ro` and `agentictl-act` when `--split-users` is enabled.
 
 ## 4. Install A Read-Only Node
 
@@ -84,6 +84,7 @@ tar -xzf agentictl-0.1.0.tar.gz
 cd agentictl-0.1.0
 
 sudo install/install-node.sh \
+  --split-users \
   --readonly-public-key-file /tmp/agentictl_ro.pub \
   --allow-service-restart "" \
   --allow-package-install "" \
@@ -92,11 +93,11 @@ sudo install/install-node.sh \
 
 This creates:
 
-- User: `agentictl`
+- User: `agentictl-ro`
 - Base directory: `/opt/agentictl`
 - Forced read-only SSH command: `/opt/agentictl/bin/agentictl readonly`
 
-No action public key is installed, so action-mode SSH is unavailable.
+No action public key is installed, so action-mode SSH is unavailable and no sudoers entry is created.
 
 ## 5. Install An Action-Enabled Node
 
@@ -109,6 +110,7 @@ tar -xzf agentictl-0.1.0.tar.gz
 cd agentictl-0.1.0
 
 sudo install/install-node.sh \
+  --split-users \
   --readonly-public-key-file /tmp/agentictl_ro.pub \
   --action-public-key-file /tmp/agentictl_act.pub \
   --allow-service-restart "ollama.service agentictl-agent.service" \
@@ -123,6 +125,8 @@ command="/opt/agentictl/bin/agentictl readonly",no-pty,no-agent-forwarding,no-X1
 command="/opt/agentictl/bin/agentictl act",no-pty,no-agent-forwarding,no-X11-forwarding,no-port-forwarding ...
 ```
 
+With `--split-users`, the first entry belongs to `agentictl-ro` and the second belongs to `agentictl-act`. Only `agentictl-act` receives sudo permission for `/opt/agentictl/bin/agentictl-act *`. Both users can append `/opt/agentictl/state/audit.log` through the shared `agentictl-audit` group, but only the action user owns staging and backup directories.
+
 The action executor still refuses changes unless:
 
 - The target is allowlisted in `/opt/agentictl/config/policy.env`.
@@ -136,7 +140,7 @@ Add aliases on the OpenClaw host:
 ```sshconfig
 Host prod-gpu-01-ro
   HostName prod-gpu-01.example.net
-  User agentictl
+  User agentictl-ro
   IdentityFile ~/.ssh/agentictl_ro
   IdentitiesOnly yes
   BatchMode yes
@@ -144,7 +148,7 @@ Host prod-gpu-01-ro
 
 Host prod-gpu-01-act
   HostName prod-gpu-01.example.net
-  User agentictl
+  User agentictl-act
   IdentityFile ~/.ssh/agentictl_act
   IdentitiesOnly yes
   BatchMode yes
@@ -338,9 +342,9 @@ ssh -vvv prod-gpu-01-ro capabilities
 
 Check:
 
-- The SSH alias points at user `agentictl`.
+- The SSH alias points at the expected user, normally `agentictl-ro` for read-only and `agentictl-act` for action mode.
 - The correct private key is used.
-- The node has the matching public key in `/var/lib/agentictl/.ssh/authorized_keys`.
+- The node has the matching public key in the selected user's `authorized_keys`, for example `/var/lib/agentictl-ro/.ssh/authorized_keys`.
 - File permissions are `0700` for `.ssh` and `0600` for `authorized_keys`.
 
 Forced command returns usage:

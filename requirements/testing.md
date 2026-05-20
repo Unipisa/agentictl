@@ -12,6 +12,9 @@ The Docker test suite must cover:
 
 - Key generation.
 - Node installation.
+- Read-only-only installation does not create the managed sudoers file.
+- Split-user installation grants sudo only to the action user.
+- Split-user installation keeps the audit log writable through the shared audit group while keeping staging owned by the action user.
 - Forced-command SSH for read-only mode.
 - Forced-command SSH for action mode.
 - Policy denial.

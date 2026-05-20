@@ -2,7 +2,7 @@
 
 ## Model
 
-The managed node exposes a dedicated SSH user, normally `agentictl`. The user has `/bin/sh` as its login shell because OpenSSH uses the user's shell to run forced commands. Access is confined with `authorized_keys` forced commands:
+The managed node exposes dedicated SSH users. In the recommended split-user layout these are `agentictl-ro` and `agentictl-act`. The users have `/bin/sh` as their login shell because OpenSSH uses the user's shell to run forced commands. Access is confined with `authorized_keys` forced commands:
 
 - `agentictl readonly` for diagnostics.
 - `agentictl act` for allowlisted changes.
@@ -24,6 +24,7 @@ Install on each Linux node:
 
 ```bash
 sudo install/install-node.sh \
+  --split-users \
   --readonly-public-key-file ~/.ssh/agentictl_ro.pub \
   --action-public-key-file ~/.ssh/agentictl_act.pub \
   --allow-service-restart "ollama.service agentictl-agent.service" \
@@ -36,13 +37,13 @@ Add SSH aliases on the agent host:
 ```sshconfig
 Host node-ro
   HostName node.example.net
-  User agentictl
+  User agentictl-ro
   IdentityFile ~/.ssh/agentictl_ro
   BatchMode yes
 
 Host node-act
   HostName node.example.net
-  User agentictl
+  User agentictl-act
   IdentityFile ~/.ssh/agentictl_act
   BatchMode yes
 ```
@@ -90,11 +91,11 @@ AGENTICTL_MAX_LIST_ENTRIES=2000
 AGENTICTL_MAX_LIST_DEPTH=5
 ```
 
-The action executor must be the only path to privileged changes. The installer adds a sudoers rule for `/opt/agentictl/bin/agentictl-act *`; the script still enforces policy before running privileged operations.
+The action executor must be the only path to privileged changes. The installer adds a sudoers rule for `/opt/agentictl/bin/agentictl-act *` only when an action public key is installed. With `--split-users`, only `agentictl-act` receives that sudoers rule; `agentictl-ro` receives no sudo permission. If no action key is supplied, the managed sudoers file is removed.
 
 ## Audit
 
-Audit records are appended to `/opt/agentictl/state/audit.log`. Review this file during incident response or when tuning allowlists.
+Audit records are appended to `/opt/agentictl/state/audit.log`. In split-user installs this file is owned by `root:agentictl-audit` with mode `0660`; both runtime users are members of that shared audit group, while `/opt/agentictl/state/incoming` and `/opt/agentictl/state/backups` remain owned by the action user. Review the audit log during incident response or when tuning allowlists.
 
 ## Skill Install
 

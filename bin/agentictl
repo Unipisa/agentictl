@@ -28,7 +28,10 @@ fail() {
 
 audit() {
   local event="${1:-unknown}" detail="${2:-}" result="${3:-}"
-  mkdir -p "$(dirname "$AUDIT_LOG")" 2>/dev/null || return 0
+  local audit_dir
+  audit_dir="$(dirname "$AUDIT_LOG")"
+  mkdir -p "$audit_dir" 2>/dev/null || return 0
+  [[ -e "$AUDIT_LOG" && -w "$AUDIT_LOG" ]] || [[ ! -e "$AUDIT_LOG" && -w "$audit_dir" ]] || return 0
   printf '{"ts":%s,"actor":%s,"event":%s,"detail":%s,"result":%s}\n' \
     "$(json_string "$(date --iso-8601=seconds 2>/dev/null || date)")" \
     "$(json_string "${USER:-unknown}")" \

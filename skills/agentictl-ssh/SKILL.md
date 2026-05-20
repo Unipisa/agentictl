@@ -17,6 +17,8 @@ Use the SSH host alias or `user@host` provided by the user or workspace notes. P
 - Read-only alias/key for diagnostics, forced to `agentictl readonly`.
 - Action alias/key for changes, forced to `agentictl act`.
 
+In the recommended split-user installation, read-only aliases use user `agentictl-ro` and action aliases use user `agentictl-act`. Do not use the action alias for diagnostics unless the read-only alias is unavailable and the user explicitly approves that fallback.
+
 If the target is ambiguous, ask which node or alias to use before running commands.
 
 ## Read-Only Commands
@@ -24,15 +26,15 @@ If the target is ambiguous, ask which node or alias to use before running comman
 Examples:
 
 ```bash
-ssh agentictl@node capabilities
-ssh agentictl@node health
-ssh agentictl@node service-status --unit ollama.service
-ssh agentictl@node journal --unit ollama.service --since 30m --lines 200
-ssh agentictl@node dmesg --level err,warn --lines 200
-ssh agentictl@node fs-list --path /etc --max-depth 1 --limit 50
-ssh agentictl@node fs-stat --path /etc/agentictl/runtime.yaml
-ssh agentictl@node fs-read --path /etc/agentictl/runtime.yaml --max-bytes 4096
-ssh agentictl@node log-read --path /var/log/syslog --tail 100
+ssh node-ro capabilities
+ssh node-ro health
+ssh node-ro service-status --unit ollama.service
+ssh node-ro journal --unit ollama.service --since 30m --lines 200
+ssh node-ro dmesg --level err,warn --lines 200
+ssh node-ro fs-list --path /etc --max-depth 1 --limit 50
+ssh node-ro fs-stat --path /etc/agentictl/runtime.yaml
+ssh node-ro fs-read --path /etc/agentictl/runtime.yaml --max-bytes 4096
+ssh node-ro log-read --path /var/log/syslog --tail 100
 ```
 
 Use read-only commands first to establish current state. Prefer `capabilities` when you need the node's advertised command surface.
@@ -52,19 +54,19 @@ When reading files:
 Use the action SSH alias/key only for these commands:
 
 ```bash
-ssh agentictl@node capabilities
-ssh agentictl@node service-restart --unit ollama.service --dry-run
-ssh agentictl@node service-restart --unit ollama.service --execute
-ssh agentictl@node package-install --name htop --dry-run
-ssh agentictl@node package-install --name htop --execute
+ssh node-act capabilities
+ssh node-act service-restart --unit ollama.service --dry-run
+ssh node-act service-restart --unit ollama.service --execute
+ssh node-act package-install --name htop --dry-run
+ssh node-act package-install --name htop --execute
 ```
 
 For config changes, stage the content through stdin, preview the apply, then execute only after explicit user approval:
 
 ```bash
-ssh agentictl@node config-stage --name runtime.yaml --execute < runtime.yaml
-ssh agentictl@node config-apply --target /etc/agentictl/runtime.yaml --source /opt/agentictl/state/incoming/runtime.yaml --dry-run
-ssh agentictl@node config-apply --target /etc/agentictl/runtime.yaml --source /opt/agentictl/state/incoming/runtime.yaml --execute
+ssh node-act config-stage --name runtime.yaml --execute < runtime.yaml
+ssh node-act config-apply --target /etc/agentictl/runtime.yaml --source /opt/agentictl/state/incoming/runtime.yaml --dry-run
+ssh node-act config-apply --target /etc/agentictl/runtime.yaml --source /opt/agentictl/state/incoming/runtime.yaml --execute
 ```
 
 Rules for changes:

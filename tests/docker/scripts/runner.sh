@@ -10,11 +10,11 @@ SSH_COMMON=(
 )
 
 ssh_ro() {
-  ssh "${SSH_COMMON[@]}" -i /keys/agentictl_ro agentictl@node "$@"
+  ssh "${SSH_COMMON[@]}" -i /keys/agentictl_ro agentictl-ro@node "$@"
 }
 
 ssh_act() {
-  ssh "${SSH_COMMON[@]}" -i /keys/agentictl_act agentictl@node "$@"
+  ssh "${SSH_COMMON[@]}" -i /keys/agentictl_act agentictl-act@node "$@"
 }
 
 pass_count=0

@@ -4,12 +4,18 @@
 
 The installer must:
 
-- Create or update the dedicated `agentictl` system user.
+- Create or update dedicated SSH users.
+- Support the legacy single-user layout with user `agentictl`.
+- Support `--split-users`, defaulting to `agentictl-ro` and `agentictl-act`.
 - Install binaries under `/opt/agentictl/bin`.
 - Install policy under `/opt/agentictl/config/policy.env`.
 - Create state directories under `/opt/agentictl/state`.
 - Configure forced-command SSH keys.
-- Add a narrow sudoers entry for `/opt/agentictl/bin/agentictl-act *`.
+- Add a narrow sudoers entry for `/opt/agentictl/bin/agentictl-act *` only when an action public key is installed.
+- Remove the managed sudoers file when installing a read-only-only node.
+- In split-user mode, grant sudo only to the action user.
+- In split-user mode, create a shared audit group, default `agentictl-audit`, for append access to `/opt/agentictl/state/audit.log`.
+- Keep staging and backup directories owned by the action user when an action key is installed.
 
 ## Release Tarball
 

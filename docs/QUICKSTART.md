@@ -8,7 +8,7 @@ This guide covers local packaging, node installation, basic SSH usage, and tests
 - `bin/agentictl-readonly`: read-only diagnostics for health, logs, kernel messages, and service status.
 - `bin/agentictl-act`: controlled actions with allowlists, `--dry-run`, explicit `--execute`, config backups, staging, and audit log.
 - `bin/agentictl-nodes`: local OpenClaw-side inventory and reading snapshot helper.
-- `install/install-node.sh`: node installer for a dedicated SSH user and forced-key setup.
+- `install/install-node.sh`: node installer for dedicated forced-command SSH users.
 - `skills/agentictl-ssh/SKILL.md`: OpenClaw skill that teaches the agent how to use the safe SSH interface.
 - `requirements/`: Markdown requirements and contribution notes for expanding the verb set.
 
@@ -25,6 +25,7 @@ Install on a Linux node:
 
 ```bash
 sudo install/install-node.sh \
+  --split-users \
   --readonly-public-key-file ~/.ssh/agentictl_ro.pub \
   --action-public-key-file ~/.ssh/agentictl_act.pub \
   --allow-service-restart "ollama.service agentictl-agent.service" \
@@ -34,7 +35,9 @@ sudo install/install-node.sh \
   --allow-log-roots "/var/log"
 ```
 
-The installer creates an `agentictl` system user, installs scripts under `/opt/agentictl`, writes `/opt/agentictl/config/policy.env`, configures `authorized_keys` forced commands, and adds a sudoers rule for `agentictl-act`.
+With `--split-users`, the installer creates `agentictl-ro` and `agentictl-act`. Only `agentictl-act` receives a sudoers rule for `/opt/agentictl/bin/agentictl-act *`. The audit log is owned by `root:agentictl-audit` with mode `0660`, so both runtime users can append audit records without making staging directories writable by the read-only user. If you omit `--action-public-key-file`, the installer creates no sudoers entry and removes the managed sudoers file if present.
+
+Without `--split-users`, the installer keeps the legacy single-user layout with user `agentictl`, but sudoers is still created only when an action public key is installed.
 
 ## SSH Usage
 
