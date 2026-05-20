@@ -74,3 +74,12 @@ The OpenClaw-side helper `bin/agentictl-nodes` provides:
 The inventory defaults to `inventory/agentictl-nodes.tsv`. Node role descriptions default to `inventory/roles/<node>.md`. Readings default to `state/readings/YYYY-MM-DD/<node>/`.
 
 Software-stack reasoning must use the saved node role, current package inventory, loaded kernel modules, and historical readings before recommending allowlisted package changes.
+
+## Skill Tools
+
+The OpenClaw skill must include bundled script tools for common node operations:
+
+- `agentictl-node-tool.sh`: local wrapper for inventory, role, record, and history operations.
+- `agentictl-ssh-tool.sh`: SSH wrapper for declared agentictl verbs with token validation, optional reading recording, and an explicit `--allow-execute` gate for commands containing `--execute`.
+
+The skill instructions should prefer these tools when available and document raw SSH as the fallback path.

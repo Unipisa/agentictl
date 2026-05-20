@@ -102,6 +102,13 @@ bin/agentictl-nodes history --node prod-gpu-01-ro --kind health --limit 10
 
 Node roles are stored under `inventory/roles/`. Readings are stored under `state/readings/YYYY-MM-DD/<node>/`.
 
+When using the OpenClaw skill, prefer the bundled wrappers:
+
+```bash
+skills/agentictl-ssh/scripts/agentictl-node-tool.sh list
+skills/agentictl-ssh/scripts/agentictl-ssh-tool.sh --target prod-gpu-01-ro --record-kind health -- health
+```
+
 ## Package
 
 ```bash

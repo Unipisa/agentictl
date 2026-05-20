@@ -287,6 +287,15 @@ Role descriptions are stored under:
 inventory/roles/<node>.md
 ```
 
+The skill includes wrapper tools for these common operations:
+
+```bash
+skills/agentictl-ssh/scripts/agentictl-node-tool.sh list
+skills/agentictl-ssh/scripts/agentictl-ssh-tool.sh --target prod-gpu-01-ro --record-kind health -- health
+```
+
+Use `agentictl-ssh-tool.sh --allow-execute` only after explicit approval for the specific action.
+
 For `/etc` file contents, prefer storing `fs-stat` snapshots unless the user explicitly asks to preserve file content. Logs are usually safe to store in bounded tails, but they can still contain secrets, so use small `--tail` and `--max-bytes` values.
 
 ## 11. HEARTBEAT Suggestions

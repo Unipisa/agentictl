@@ -3,6 +3,7 @@ set -euo pipefail
 IFS=$'\n\t'
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+SKILL_TOOL_DIR="$ROOT/skills/agentictl-ssh/scripts"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -18,6 +19,18 @@ chmod +x "$TMP_DIR/fakebin/apt-get"
 for fake_manager in dnf yum zypper apk pacman; do
   cp "$TMP_DIR/fakebin/apt-get" "$TMP_DIR/fakebin/$fake_manager"
 done
+cat > "$TMP_DIR/fakebin/ssh" <<'FAKE_SSH'
+#!/usr/bin/env bash
+last=""
+for arg in "$@"; do
+  last="$arg"
+done
+case "$last" in
+  health) printf '{"ok":true,"host":"fake-node"}\n' ;;
+  *) printf '{"ok":true,"cmd":"%s"}\n' "$last" ;;
+esac
+FAKE_SSH
+chmod +x "$TMP_DIR/fakebin/ssh"
 cat > "$TMP_DIR/config/policy.env" <<'POLICY'
 ALLOW_SERVICE_RESTART="ollama.service agentictl-agent.service"
 ALLOW_PACKAGE_INSTALL="htop jq"
@@ -110,6 +123,9 @@ output="$("$ROOT/bin/agentictl-nodes" list)"
 check_contains "$output" '"alias":"node-ro"'
 check_contains "$output" 'GPU inference node'
 
+output="$(bash "$SKILL_TOOL_DIR/agentictl-node-tool.sh" list)"
+check_contains "$output" '"alias":"node-ro"'
+
 output="$(printf 'GPU inference node with NVIDIA runtime and Ollama service\n' | "$ROOT/bin/agentictl-nodes" role-set --node node-ro --source test)"
 check_contains "$output" '"action":"role-set"'
 
@@ -119,7 +135,15 @@ check_contains "$output" 'NVIDIA runtime'
 output="$(printf '{"ok":true}\n' | "$ROOT/bin/agentictl-nodes" record --node node-ro --kind health --source 'ssh node-ro health')"
 check_contains "$output" '"path":'
 
+output="$(bash "$SKILL_TOOL_DIR/agentictl-ssh-tool.sh" --target node-ro --record-kind health-tool -- health)"
+check_contains "$output" '"host":"fake-node"'
+
+check_fails bash "$SKILL_TOOL_DIR/agentictl-ssh-tool.sh" --target node-ro -- package-install --name htop --execute
+
 output="$("$ROOT/bin/agentictl-nodes" history --node node-ro --kind health --limit 5)"
 check_contains "$output" '"readings":['
+
+output="$("$ROOT/bin/agentictl-nodes" history --node node-ro --kind health-tool --limit 5)"
+check_contains "$output" 'health-tool'
 
 printf 'ok %s tests\n' "$pass_count"

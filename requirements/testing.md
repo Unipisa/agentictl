@@ -29,6 +29,7 @@ The Docker test suite must cover:
 - Log read under allowed log roots.
 - Denial of sensitive filesystem paths.
 - Inventory add/list, node role persistence, and reading snapshot storage in local tests.
+- Bundled skill tool wrappers for inventory operations, SSH recording, and `--execute` gating in local tests.
 
 ## Local Unit Test
 

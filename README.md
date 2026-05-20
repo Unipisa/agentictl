@@ -23,6 +23,7 @@ The result is a small, auditable control surface that fits agent workflows witho
 - `agentictl-readonly`: diagnostics such as `health`, `service-status`, `journal`, `dmesg`, package inventory, and loaded kernel modules.
 - `agentictl-act`: allowlisted actions such as `service-restart`, multi-package-manager `package-install`, and staged config apply.
 - `agentictl-nodes`: local inventory and reading snapshot helper for OpenClaw workspaces.
+- Bundled OpenClaw skill tools for node inventory and safe SSH readings.
 - Node installer for dedicated forced-command SSH users, with optional read-only/action Unix user separation.
 - Docker Compose end-to-end test harness with an internal-only network.
 - OpenClaw skill: `skills/agentictl-ssh`.
@@ -77,6 +78,8 @@ bin/agentictl-nodes role-set --node prod-gpu-01-ro --source user --description "
 ssh prod-gpu-01-ro health | bin/agentictl-nodes record --node prod-gpu-01-ro --kind health --source "ssh prod-gpu-01-ro health"
 ssh prod-gpu-01-ro package-list --limit 5000 | bin/agentictl-nodes record --node prod-gpu-01-ro --kind packages --source "ssh prod-gpu-01-ro package-list --limit 5000"
 ```
+
+The skill also includes wrappers under `skills/agentictl-ssh/scripts/` so an agent can use inventory and SSH readings without rebuilding command sequences by hand.
 
 ## Documentation
 

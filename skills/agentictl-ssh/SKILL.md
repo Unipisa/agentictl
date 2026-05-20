@@ -21,6 +21,18 @@ In the recommended split-user installation, read-only aliases use user `agentict
 
 If the target is ambiguous, ask which node or alias to use before running commands.
 
+## Bundled Tools
+
+Prefer the bundled scripts when this skill directory is available:
+
+```bash
+skills/agentictl-ssh/scripts/agentictl-node-tool.sh list
+skills/agentictl-ssh/scripts/agentictl-node-tool.sh add --alias prod-gpu-01-ro --host prod-gpu-01-ro --mode readonly --identity ~/.ssh/agentictl_ro
+skills/agentictl-ssh/scripts/agentictl-ssh-tool.sh --target prod-gpu-01-ro --record-kind health -- health
+```
+
+Use `agentictl-node-tool.sh` for local inventory, role, and history operations. Use `agentictl-ssh-tool.sh` for SSH verbs because it validates tokens, can record successful readings, and refuses `--execute` unless `--allow-execute` is explicitly supplied. If the bundled scripts are unavailable, fall back to the raw `ssh` and `bin/agentictl-nodes` commands below.
+
 ## Read-Only Commands
 
 Examples:
@@ -77,6 +89,7 @@ Rules for changes:
 
 - Always run the matching `--dry-run` first.
 - Do not use `--execute` until the user has approved that specific target and action.
+- When using `agentictl-ssh-tool.sh`, pass `--allow-execute` only after that approval.
 - Treat "not allowed" errors as policy boundaries, not as prompts to bypass the executor.
 - For `package-install`, report the package manager returned by dry-run. Supported installers are `apt`, `dnf`, `yum`, `zypper`, `apk`, and `pacman`.
 - Report the JSON result and any backup path from `config-apply`.
