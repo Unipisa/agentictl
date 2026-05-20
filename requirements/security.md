@@ -61,3 +61,14 @@ Requirements:
 - Sensitive defaults must deny `/etc/shadow`, `/etc/gshadow`, `/etc/ssh`, `/etc/ssl/private`, `/etc/sudoers`, and `/etc/sudoers.d`.
 
 Agents may read logs and approved `/etc` paths, but must treat file contents as potentially sensitive. The skill should not store sensitive file contents unless the user explicitly asks for that specific file to be captured.
+
+## Software Inventory
+
+Package inventory and loaded kernel modules are read-only diagnostics. They must:
+
+- Use package databases or `/proc/modules`, not arbitrary shell commands.
+- Enforce explicit result limits.
+- Return stable JSON for comparison over time.
+- Be treated as potentially sensitive operational metadata when stored locally.
+
+Automated package recommendations must compare the saved node role, current package inventory, loaded kernel modules, and historical readings. Package installation still requires the action mode allowlist, `--dry-run`, user approval, and `--execute`.

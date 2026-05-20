@@ -169,6 +169,8 @@ ssh prod-gpu-01-ro capabilities
 ssh prod-gpu-01-ro health
 ssh prod-gpu-01-ro service-status --unit ollama.service
 ssh prod-gpu-01-ro journal --unit ollama.service --since 30m --lines 200
+ssh prod-gpu-01-ro package-list --limit 2000
+ssh prod-gpu-01-ro kernel-modules --limit 1000
 ssh prod-gpu-01-ro fs-list --path /etc --max-depth 1 --limit 50
 ssh prod-gpu-01-ro log-read --path /var/log/syslog --tail 100
 ```
@@ -178,6 +180,8 @@ Expected behavior:
 - `capabilities` returns JSON with `"mode":"readonly"`.
 - `health` returns JSON with `"ok":true`.
 - `service-status` returns stable `systemctl show` fields.
+- `package-list` returns installed packages from the node package database.
+- `kernel-modules` returns loaded modules from `/proc/modules`.
 - `fs-list` lists only paths allowed by policy and skips denied sensitive paths.
 - `log-read` returns capped log content from allowed log roots.
 - Unsafe or mutating verbs fail in read-only mode.
@@ -234,6 +238,12 @@ For action-enabled nodes:
 Use the agentictl SSH skill. Check prod-gpu-01-ro first, then use prod-gpu-01-act only for service-restart --unit ollama.service --dry-run. Do not execute changes.
 ```
 
+For software-stack assessment:
+
+```text
+Use the agentictl SSH skill. The node prod-gpu-01-ro is a GPU inference node for Ollama. Save that role locally, collect package-list and kernel-modules snapshots, compare them with the role, and propose package changes only as dry-runs through prod-gpu-01-act.
+```
+
 ## 10. Inventory And Historical Readings
 
 Use `bin/agentictl-nodes` in the OpenClaw workspace to track configured nodes:
@@ -241,6 +251,8 @@ Use `bin/agentictl-nodes` in the OpenClaw workspace to track configured nodes:
 ```bash
 bin/agentictl-nodes add --alias prod-gpu-01-ro --host prod-gpu-01-ro --mode readonly --identity ~/.ssh/agentictl_ro
 bin/agentictl-nodes add --alias prod-gpu-01-act --host prod-gpu-01-act --mode act --identity ~/.ssh/agentictl_act
+bin/agentictl-nodes role-set --node prod-gpu-01-ro --source user --description "GPU inference node running Ollama"
+bin/agentictl-nodes role-show --node prod-gpu-01-ro
 bin/agentictl-nodes list
 ```
 
@@ -253,6 +265,12 @@ ssh prod-gpu-01-ro health \
 ssh prod-gpu-01-ro service-status --unit ollama.service \
   | bin/agentictl-nodes record --node prod-gpu-01-ro --kind service-ollama --source "ssh prod-gpu-01-ro service-status --unit ollama.service"
 
+ssh prod-gpu-01-ro package-list --limit 5000 \
+  | bin/agentictl-nodes record --node prod-gpu-01-ro --kind packages --source "ssh prod-gpu-01-ro package-list --limit 5000"
+
+ssh prod-gpu-01-ro kernel-modules --limit 2000 \
+  | bin/agentictl-nodes record --node prod-gpu-01-ro --kind kernel-modules --source "ssh prod-gpu-01-ro kernel-modules --limit 2000"
+
 bin/agentictl-nodes history --node prod-gpu-01-ro --kind health --limit 20
 ```
 
@@ -260,6 +278,12 @@ Readings are stored under:
 
 ```text
 state/readings/YYYY-MM-DD/<node>/<timestamp>-<kind>.json
+```
+
+Role descriptions are stored under:
+
+```text
+inventory/roles/<node>.md
 ```
 
 For `/etc` file contents, prefer storing `fs-stat` snapshots unless the user explicitly asks to preserve file content. Logs are usually safe to store in bounded tails, but they can still contain secrets, so use small `--tail` and `--max-bytes` values.
@@ -283,6 +307,7 @@ Every heartbeat:
 - Do not run `--execute`.
 - Store health and service readings through `bin/agentictl-nodes record`.
 - Store `fs-stat` for important config files instead of full file contents.
+- Store package and kernel-module snapshots on lower-frequency checks, for example weekly or before planned maintenance.
 - If all checks are healthy, respond exactly with `HEARTBEAT_OK`.
 
 Read-only checks:
@@ -290,6 +315,7 @@ Read-only checks:
 - `prod-gpu-01-ro`: `capabilities`, `health`, `service-status --unit ollama.service`
 - `prod-gpu-02-ro`: `capabilities`, `health`, `service-status --unit ollama.service`
 - Optional config drift metadata: `fs-stat --path /etc/agentictl/runtime.yaml`
+- Optional software drift metadata: `package-list --limit 5000`, `kernel-modules --limit 2000`
 
 Report only:
 

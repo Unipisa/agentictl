@@ -61,6 +61,12 @@ check_contains "$output" '"ok":true'
 output="$(ssh_ro service-status --unit fake.service)"
 check_contains "$output" 'ActiveState=active'
 
+output="$(ssh_ro package-list --limit 20)"
+check_contains "$output" '"manager":"dpkg"'
+
+output="$(ssh_ro kernel-modules --limit 20)"
+check_contains "$output" '"modules":['
+
 output="$(ssh_ro fs-list --path /etc --max-depth 1 --limit 20)"
 check_contains "$output" '"entries":['
 

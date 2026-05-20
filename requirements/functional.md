@@ -23,6 +23,8 @@ Read-only verbs:
 - `service-status --unit UNIT.service`
 - `journal --unit UNIT.service --since 30m --lines 200`
 - `dmesg --level err,warn --lines 200`
+- `package-list --limit N`
+- `kernel-modules --limit N`
 - `fs-list --path PATH --max-depth N --limit N`
 - `fs-stat --path PATH`
 - `fs-read --path PATH --tail LINES|--max-bytes BYTES`
@@ -59,8 +61,12 @@ The OpenClaw-side helper `bin/agentictl-nodes` provides:
 
 - `list`: list configured node aliases.
 - `add`: add a node alias to the workspace inventory.
+- `role-set`: save a local role description for a node.
+- `role-show`: return the saved local role description for a node.
 - `check`: run basic `capabilities` and `health` checks over SSH.
 - `record`: store command output under `state/readings/`.
 - `history`: list historical readings for temporal reasoning.
 
-The inventory defaults to `inventory/agentictl-nodes.tsv`. Readings default to `state/readings/YYYY-MM-DD/<node>/`.
+The inventory defaults to `inventory/agentictl-nodes.tsv`. Node role descriptions default to `inventory/roles/<node>.md`. Readings default to `state/readings/YYYY-MM-DD/<node>/`.
+
+Software-stack reasoning must use the saved node role, current package inventory, loaded kernel modules, and historical readings before recommending allowlisted package changes.

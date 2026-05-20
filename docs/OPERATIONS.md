@@ -93,6 +93,17 @@ AGENTICTL_MAX_LIST_DEPTH=5
 
 The action executor must be the only path to privileged changes. The installer adds a sudoers rule for `/opt/agentictl/bin/agentictl-act *` only when an action public key is installed. With `--split-users`, only `agentictl-act` receives that sudoers rule; `agentictl-ro` receives no sudo permission. If no action key is supplied, the managed sudoers file is removed.
 
+## Software Inventory
+
+Use read-only inventory before proposing package changes:
+
+```bash
+ssh node-ro package-list --limit 5000
+ssh node-ro kernel-modules --limit 2000
+```
+
+Save the intended node role locally with `bin/agentictl-nodes role-set`, then record package and module snapshots with `bin/agentictl-nodes record`. Package changes still go through `ssh node-act package-install --name PACKAGE --dry-run` and require explicit approval before `--execute`.
+
 ## Audit
 
 Audit records are appended to `/opt/agentictl/state/audit.log`. In split-user installs this file is owned by `root:agentictl-audit` with mode `0660`; both runtime users are members of that shared audit group, while `/opt/agentictl/state/incoming` and `/opt/agentictl/state/backups` remain owned by the action user. Review the audit log during incident response or when tuning allowlists.

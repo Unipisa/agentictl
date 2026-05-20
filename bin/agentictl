@@ -74,7 +74,7 @@ done
 command_name="${argv[0]}"
 
 case "$mode:$command_name" in
-  readonly:capabilities|readonly:health|readonly:journal|readonly:dmesg|readonly:service-status|readonly:fs-list|readonly:fs-stat|readonly:fs-read|readonly:log-read)
+  readonly:capabilities|readonly:health|readonly:journal|readonly:dmesg|readonly:service-status|readonly:package-list|readonly:kernel-modules|readonly:fs-list|readonly:fs-stat|readonly:fs-read|readonly:log-read)
     audit "allow" "$mode:$command_name" "dispatch"
     exec "$SCRIPT_DIR/agentictl-readonly" "${argv[@]}"
     ;;

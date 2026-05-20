@@ -20,7 +20,7 @@ The result is a small, auditable control surface that fits agent workflows witho
 ## What It Provides
 
 - `agentictl`: forced-command SSH dispatcher.
-- `agentictl-readonly`: diagnostics such as `health`, `service-status`, `journal`, and `dmesg`.
+- `agentictl-readonly`: diagnostics such as `health`, `service-status`, `journal`, `dmesg`, package inventory, and loaded kernel modules.
 - `agentictl-act`: allowlisted actions such as `service-restart`, `package-install`, and staged config apply.
 - `agentictl-nodes`: local inventory and reading snapshot helper for OpenClaw workspaces.
 - Node installer for dedicated forced-command SSH users, with optional read-only/action Unix user separation.
@@ -36,6 +36,8 @@ Read-only diagnostics:
 ssh node-ro health
 ssh node-ro service-status --unit ollama.service
 ssh node-ro journal --unit ollama.service --since 30m --lines 200
+ssh node-ro package-list --limit 2000
+ssh node-ro kernel-modules --limit 1000
 ssh node-ro fs-list --path /etc --max-depth 1 --limit 50
 ssh node-ro log-read --path /var/log/syslog --tail 100
 ```
@@ -71,7 +73,9 @@ OpenClaw-side inventory and historical readings are handled by:
 ```bash
 bin/agentictl-nodes list
 bin/agentictl-nodes add --alias prod-gpu-01-ro --host prod-gpu-01-ro --mode readonly
+bin/agentictl-nodes role-set --node prod-gpu-01-ro --source user --description "GPU inference node running Ollama"
 ssh prod-gpu-01-ro health | bin/agentictl-nodes record --node prod-gpu-01-ro --kind health --source "ssh prod-gpu-01-ro health"
+ssh prod-gpu-01-ro package-list --limit 5000 | bin/agentictl-nodes record --node prod-gpu-01-ro --kind packages --source "ssh prod-gpu-01-ro package-list --limit 5000"
 ```
 
 ## Documentation

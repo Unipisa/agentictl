@@ -98,6 +98,18 @@ Filesystem read verbs should have tests for:
 - Denial of a sensitive path under `DENY_READ_PATHS`.
 - Limit handling where practical.
 
+Inventory read verbs such as `package-list` and `kernel-modules` should have tests for:
+
+- Stable JSON output.
+- Limit handling.
+- No mutation of node state.
+
+Local helper verbs such as `role-set` and `role-show` should have tests for:
+
+- Local persistence under the workspace.
+- JSON output that exposes the saved path.
+- Reuse by later software-stack reasoning.
+
 ## Example Checklist
 
 For a new `service-reload` action:

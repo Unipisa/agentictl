@@ -31,6 +31,8 @@ ssh node-ro health
 ssh node-ro service-status --unit ollama.service
 ssh node-ro journal --unit ollama.service --since 30m --lines 200
 ssh node-ro dmesg --level err,warn --lines 200
+ssh node-ro package-list --limit 2000
+ssh node-ro kernel-modules --limit 1000
 ssh node-ro fs-list --path /etc --max-depth 1 --limit 50
 ssh node-ro fs-stat --path /etc/agentictl/runtime.yaml
 ssh node-ro fs-read --path /etc/agentictl/runtime.yaml --max-bytes 4096
@@ -38,6 +40,8 @@ ssh node-ro log-read --path /var/log/syslog --tail 100
 ```
 
 Use read-only commands first to establish current state. Prefer `capabilities` when you need the node's advertised command surface.
+
+Use `package-list` and `kernel-modules` when the user asks about installed software, kernel capabilities, drivers, host requirements, or software stack drift. Store these results when they may influence later package decisions.
 
 Filesystem reads are policy constrained by the node. Treat `/etc` and logs as potentially sensitive. Do not read broad file contents unless the user asks for a specific file or the troubleshooting task clearly needs it. Prefer `fs-stat` or `fs-list` before `fs-read`.
 
@@ -97,7 +101,24 @@ bin/agentictl-nodes add --alias prod-gpu-01-ro --host prod-gpu-01-ro --mode read
 bin/agentictl-nodes add --alias prod-gpu-01-act --host prod-gpu-01-act --mode act --identity ~/.ssh/agentictl_act
 ```
 
+When the user describes the node's role, save that description locally before using it for software-stack decisions:
+
+```bash
+bin/agentictl-nodes role-set --node prod-gpu-01-ro --source user --description "GPU inference node running Ollama with NVIDIA drivers"
+bin/agentictl-nodes role-show --node prod-gpu-01-ro
+```
+
 Do not invent production hostnames. Ask the user when the target host or alias is ambiguous.
+
+## Software Stack Reasoning
+
+When asked to decide what software a node should have:
+
+- Read the saved node role with `bin/agentictl-nodes role-show`.
+- Collect current state with `package-list`, `kernel-modules`, `service-status`, and targeted config reads if needed.
+- Record package and kernel-module snapshots before recommending changes.
+- Compare the role description, current packages, loaded modules, and user requirements.
+- Use the action alias only for allowlisted `package-install`, and always run `--dry-run` before asking for approval to execute.
 
 ## Historical Readings
 
@@ -106,6 +127,8 @@ For any diagnostic result that may be useful later, store a reading snapshot:
 ```bash
 ssh prod-gpu-01-ro health | bin/agentictl-nodes record --node prod-gpu-01-ro --kind health --source "ssh prod-gpu-01-ro health"
 ssh prod-gpu-01-ro service-status --unit ollama.service | bin/agentictl-nodes record --node prod-gpu-01-ro --kind service-ollama --source "ssh prod-gpu-01-ro service-status --unit ollama.service"
+ssh prod-gpu-01-ro package-list --limit 5000 | bin/agentictl-nodes record --node prod-gpu-01-ro --kind packages --source "ssh prod-gpu-01-ro package-list --limit 5000"
+ssh prod-gpu-01-ro kernel-modules --limit 2000 | bin/agentictl-nodes record --node prod-gpu-01-ro --kind kernel-modules --source "ssh prod-gpu-01-ro kernel-modules --limit 2000"
 ```
 
 Use historical readings when the user asks about trends, drift, regression, or "what changed":

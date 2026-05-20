@@ -16,6 +16,7 @@ The Docker test suite must cover:
 - Split-user installation grants sudo only to the action user.
 - Split-user installation keeps the audit log writable through the shared audit group while keeping staging owned by the action user.
 - Forced-command SSH for read-only mode.
+- Package inventory and kernel module inventory in read-only mode.
 - Forced-command SSH for action mode.
 - Policy denial.
 - Unsafe token denial.
@@ -25,7 +26,7 @@ The Docker test suite must cover:
 - Filesystem list/stat/read under allowed roots.
 - Log read under allowed log roots.
 - Denial of sensitive filesystem paths.
-- Inventory add/list and reading snapshot storage in local tests.
+- Inventory add/list, node role persistence, and reading snapshot storage in local tests.
 
 ## Local Unit Test
 

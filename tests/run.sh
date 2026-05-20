@@ -70,6 +70,9 @@ check_contains "$output" '"target_exists":false'
 output="$("$ROOT/bin/agentictl" act capabilities)"
 check_contains "$output" '"mode":"act"'
 
+output="$("$ROOT/bin/agentictl" readonly capabilities)"
+check_contains "$output" 'package-list'
+
 output="$("$ROOT/bin/agentictl" readonly fs-list --path "$TMP_DIR/readroot/etc" --max-depth 1 --limit 20)"
 check_contains "$output" '"entries":['
 
@@ -85,11 +88,18 @@ check_contains "$output" 'line two'
 check_fails "$ROOT/bin/agentictl" readonly fs-read --path "$TMP_DIR/readroot/etc/secret.conf"
 
 export AGENTICTL_WORKSPACE_DIR="$TMP_DIR/workspace"
-output="$("$ROOT/bin/agentictl-nodes" add --alias node-ro --host node.example.net --mode readonly --identity "$TMP_DIR/key")"
+output="$("$ROOT/bin/agentictl-nodes" add --alias node-ro --host node.example.net --mode readonly --identity "$TMP_DIR/key" --role "GPU inference node for local models")"
 check_contains "$output" '"action":"add"'
 
 output="$("$ROOT/bin/agentictl-nodes" list)"
 check_contains "$output" '"alias":"node-ro"'
+check_contains "$output" 'GPU inference node'
+
+output="$(printf 'GPU inference node with NVIDIA runtime and Ollama service\n' | "$ROOT/bin/agentictl-nodes" role-set --node node-ro --source test)"
+check_contains "$output" '"action":"role-set"'
+
+output="$("$ROOT/bin/agentictl-nodes" role-show --node node-ro)"
+check_contains "$output" 'NVIDIA runtime'
 
 output="$(printf '{"ok":true}\n' | "$ROOT/bin/agentictl-nodes" record --node node-ro --kind health --source 'ssh node-ro health')"
 check_contains "$output" '"path":'

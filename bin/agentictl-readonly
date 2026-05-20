@@ -7,6 +7,8 @@ POLICY_FILE="${AGENTICTL_POLICY_FILE:-${OPENCLAW_POLICY_FILE:-$BASE_DIR/config/p
 
 ALLOWED_UNITS_REGEX='^[a-zA-Z0-9_.@-]+\.service$'
 MAX_LINES=2000
+MAX_PACKAGE_LIMIT=10000
+MAX_MODULE_LIMIT=4096
 DEFAULT_ALLOW_READ_ROOTS="/var/log /etc"
 DEFAULT_ALLOW_LOG_ROOTS="/var/log"
 DEFAULT_DENY_READ_PATHS="/etc/shadow /etc/gshadow /etc/ssh /etc/ssl/private /etc/sudoers /etc/sudoers.d"
@@ -171,7 +173,7 @@ cmd="${1:-}"; shift || true
 
 case "$cmd" in
   capabilities)
-    printf '{"ok":true,"mode":"readonly","commands":["health","service-status","journal","dmesg","fs-list","fs-stat","fs-read","log-read","capabilities"]}\n'
+    printf '{"ok":true,"mode":"readonly","commands":["health","service-status","journal","dmesg","package-list","kernel-modules","fs-list","fs-stat","fs-read","log-read","capabilities"]}\n'
     ;;
 
   health)
@@ -227,6 +229,82 @@ case "$cmd" in
     done
     [[ "$unit" =~ $ALLOWED_UNITS_REGEX ]] || fail 65 "invalid unit"
     systemctl show "$unit" --property=Id,LoadState,ActiveState,SubState,ExecMainPID,RestartUSec,MemoryCurrent,NRestarts --no-pager
+    ;;
+
+  package-list)
+    limit="1000"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --limit) limit="${2:-}"; shift 2 ;;
+        *) fail 64 "unknown argument: $1" ;;
+      esac
+    done
+    validate_positive_int "$limit" "--limit" "$MAX_PACKAGE_LIMIT"
+    manager=""
+    if command -v dpkg-query >/dev/null 2>&1; then
+      manager="dpkg"
+      list_cmd=(dpkg-query -W -f='${Package}\t${Version}\t${db:Status-Abbrev}\n')
+    elif command -v rpm >/dev/null 2>&1; then
+      manager="rpm"
+      list_cmd=(rpm -qa --qf '%{NAME}\t%{VERSION}-%{RELEASE}\tinstalled\n')
+    elif command -v apk >/dev/null 2>&1; then
+      manager="apk"
+      list_cmd=(apk info -v)
+    else
+      fail 70 "no supported package database found"
+    fi
+    printf '{"ok":true,"manager":%s,"limit":%s,"packages":[' "$(json_string "$manager")" "$limit"
+    count=0
+    comma=""
+    while IFS= read -r line; do
+      [[ -n "$line" ]] || continue
+      if [[ "$manager" == "apk" ]]; then
+        name="${line%-[0-9]*}"
+        version="${line#"$name"-}"
+        status="installed"
+      else
+        IFS=$'\t' read -r name version status <<< "$line"
+      fi
+      [[ -n "${name:-}" ]] || continue
+      printf '%s{"name":%s,"version":%s,"status":%s}' \
+        "$comma" \
+        "$(json_string "$name")" \
+        "$(json_string "${version:-}")" \
+        "$(json_string "${status:-}")"
+      comma=","
+      count=$((count + 1))
+      (( count >= limit )) && break
+    done < <("${list_cmd[@]}" 2>/dev/null | sort)
+    printf '],"truncated":%s}\n' "$([[ "$count" -ge "$limit" ]] && printf true || printf false)"
+    ;;
+
+  kernel-modules)
+    limit="1000"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --limit) limit="${2:-}"; shift 2 ;;
+        *) fail 64 "unknown argument: $1" ;;
+      esac
+    done
+    validate_positive_int "$limit" "--limit" "$MAX_MODULE_LIMIT"
+    [[ -r /proc/modules ]] || fail 66 "/proc/modules not readable"
+    printf '{"ok":true,"source":"/proc/modules","limit":%s,"modules":[' "$limit"
+    count=0
+    comma=""
+    while read -r name size used_by deps state address _rest; do
+      [[ -n "${name:-}" ]] || continue
+      printf '%s{"name":%s,"size":%s,"used_by":%s,"deps":%s,"state":%s}' \
+        "$comma" \
+        "$(json_string "$name")" \
+        "${size:-0}" \
+        "${used_by:-0}" \
+        "$(json_string "${deps:-}")" \
+        "$(json_string "${state:-}")"
+      comma=","
+      count=$((count + 1))
+      (( count >= limit )) && break
+    done < <(sort /proc/modules)
+    printf '],"truncated":%s}\n' "$([[ "$count" -ge "$limit" ]] && printf true || printf false)"
     ;;
 
   fs-list)
@@ -335,6 +413,6 @@ case "$cmd" in
     ;;
 
   *)
-    fail 64 "usage: agentictl-readonly {capabilities|health|journal|dmesg|service-status|fs-list|fs-stat|fs-read|log-read}"
+    fail 64 "usage: agentictl-readonly {capabilities|health|journal|dmesg|service-status|package-list|kernel-modules|fs-list|fs-stat|fs-read|log-read}"
     ;;
 esac

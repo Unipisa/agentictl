@@ -5,7 +5,7 @@ This guide covers local packaging, node installation, basic SSH usage, and tests
 ## Components
 
 - `bin/agentictl`: forced-command SSH dispatcher. It parses `SSH_ORIGINAL_COMMAND`, rejects unsafe tokens, and routes to the selected mode.
-- `bin/agentictl-readonly`: read-only diagnostics for health, logs, kernel messages, and service status.
+- `bin/agentictl-readonly`: read-only diagnostics for health, logs, kernel messages, service status, package inventory, and loaded kernel modules.
 - `bin/agentictl-act`: controlled actions with allowlists, `--dry-run`, explicit `--execute`, config backups, staging, and audit log.
 - `bin/agentictl-nodes`: local OpenClaw-side inventory and reading snapshot helper.
 - `install/install-node.sh`: node installer for dedicated forced-command SSH users.
@@ -47,6 +47,8 @@ Use separate SSH aliases or keys for read-only and action access.
 ssh node-ro health
 ssh node-ro service-status --unit ollama.service
 ssh node-ro journal --unit ollama.service --since 30m --lines 200
+ssh node-ro package-list --limit 2000
+ssh node-ro kernel-modules --limit 1000
 ssh node-ro fs-list --path /etc --max-depth 1 --limit 50
 ssh node-ro fs-read --path /etc/agentictl/runtime.yaml --max-bytes 4096
 ssh node-ro log-read --path /var/log/syslog --tail 100
@@ -85,6 +87,7 @@ Add and list OpenClaw-side nodes:
 
 ```bash
 bin/agentictl-nodes add --alias prod-gpu-01-ro --host prod-gpu-01-ro --mode readonly --identity ~/.ssh/agentictl_ro
+bin/agentictl-nodes role-set --node prod-gpu-01-ro --source user --description "GPU inference node running Ollama"
 bin/agentictl-nodes list
 ```
 
@@ -92,10 +95,12 @@ Store a read result for temporal reasoning:
 
 ```bash
 ssh prod-gpu-01-ro health | bin/agentictl-nodes record --node prod-gpu-01-ro --kind health --source "ssh prod-gpu-01-ro health"
+ssh prod-gpu-01-ro package-list --limit 5000 | bin/agentictl-nodes record --node prod-gpu-01-ro --kind packages --source "ssh prod-gpu-01-ro package-list --limit 5000"
+ssh prod-gpu-01-ro kernel-modules --limit 2000 | bin/agentictl-nodes record --node prod-gpu-01-ro --kind kernel-modules --source "ssh prod-gpu-01-ro kernel-modules --limit 2000"
 bin/agentictl-nodes history --node prod-gpu-01-ro --kind health --limit 10
 ```
 
-Readings are stored under `state/readings/YYYY-MM-DD/<node>/`.
+Node roles are stored under `inventory/roles/`. Readings are stored under `state/readings/YYYY-MM-DD/<node>/`.
 
 ## Package
 
