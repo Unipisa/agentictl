@@ -87,6 +87,8 @@ The skill is user-invocable in OpenClaw, so it can appear as `/agentictl_ssh`. W
 skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh --bin-dir "$HOME/.local/bin"
 ```
 
+For adding a node from chat, the skill can generate a minimal terminal bootstrap block with `agentictl-bootstrap-instructions.sh`.
+
 ## Documentation
 
 - [Quickstart](docs/QUICKSTART.md): install, SSH usage, package, and tests.

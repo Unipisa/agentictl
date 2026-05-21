@@ -115,6 +115,12 @@ The skill is `user-invocable`, so OpenClaw can expose `/agentictl_ssh`. If you i
 skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh --bin-dir "$HOME/.local/bin"
 ```
 
+For a new node, generate the simplest terminal bootstrap commands with:
+
+```bash
+skills/agentictl-ssh/scripts/agentictl-bootstrap-instructions.sh --host node.example.net --admin-user admin --role "Managed Linux node"
+```
+
 ## Package
 
 ```bash

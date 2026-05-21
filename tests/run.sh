@@ -131,9 +131,17 @@ pass_count=$((pass_count + 1))
 
 output="$(bash "$ROOT/skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh" --bin-dir "$TMP_DIR/installed-bin")"
 check_contains "$output" '"ok":true'
+check_contains "$output" 'agentictl-bootstrap-instructions.sh'
 
 output="$("$TMP_DIR/installed-bin/agentictl-node-tool.sh" list)"
 check_contains "$output" '"alias":"node-ro"'
+
+output="$(bash "$SKILL_TOOL_DIR/agentictl-bootstrap-instructions.sh" --host node.example.net --admin-user admin --role "GPU inference node")"
+check_contains "$output" 'ssh "$ADMIN_USER@$NODE_HOST"'
+check_contains "$output" 'agentictl-node-tool.sh add'
+
+output="$("$TMP_DIR/installed-bin/agentictl-bootstrap-instructions.sh" --host node.example.net --admin-user admin --readonly-only)"
+check_contains "$output" '--readonly-public-key-file'
 
 output="$(printf 'GPU inference node with NVIDIA runtime and Ollama service\n' | "$ROOT/bin/agentictl-nodes" role-set --node node-ro --source test)"
 check_contains "$output" '"action":"role-set"'

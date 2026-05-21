@@ -302,6 +302,12 @@ If you install only the skill folder, install its bundled local helper tools:
 skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh --bin-dir "$HOME/.local/bin"
 ```
 
+To add a node from chat, ask `/agentictl_ssh` to generate terminal bootstrap commands. The skill should use:
+
+```bash
+skills/agentictl-ssh/scripts/agentictl-bootstrap-instructions.sh --host prod-gpu-01.example.net --admin-user admin --role "GPU inference node running Ollama"
+```
+
 Use `agentictl-ssh-tool.sh --allow-execute` only after explicit approval for the specific action.
 
 For `/etc` file contents, prefer storing `fs-stat` snapshots unless the user explicitly asks to preserve file content. Logs are usually safe to store in bounded tails, but they can still contain secrets, so use small `--tail` and `--max-bytes` values.

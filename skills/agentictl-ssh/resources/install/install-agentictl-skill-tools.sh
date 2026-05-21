@@ -45,6 +45,7 @@ install -d -m 0755 "$BIN_DIR"
 install -m 0755 "$SKILL_DIR/resources/bin/agentictl-nodes" "$BIN_DIR/agentictl-nodes"
 install -m 0755 "$SKILL_DIR/scripts/agentictl-node-tool.sh" "$BIN_DIR/agentictl-node-tool.sh"
 install -m 0755 "$SKILL_DIR/scripts/agentictl-ssh-tool.sh" "$BIN_DIR/agentictl-ssh-tool.sh"
+install -m 0755 "$SKILL_DIR/scripts/agentictl-bootstrap-instructions.sh" "$BIN_DIR/agentictl-bootstrap-instructions.sh"
 
-printf '{"ok":true,"bin_dir":%s,"installed":["agentictl-nodes","agentictl-node-tool.sh","agentictl-ssh-tool.sh"]}\n' \
+printf '{"ok":true,"bin_dir":%s,"installed":["agentictl-nodes","agentictl-node-tool.sh","agentictl-ssh-tool.sh","agentictl-bootstrap-instructions.sh"]}\n' \
   "$(json_string "$BIN_DIR")"
