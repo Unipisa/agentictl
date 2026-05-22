@@ -41,7 +41,7 @@ Without `--split-users`, the installer keeps the legacy single-user layout with 
 
 ## SSH Usage
 
-Use separate SSH aliases or keys for read-only and action access.
+Use separate SSH aliases or keys for read-only and action access. Configure aliases in `~/.ssh/config` on the host, user account, or container that runs OpenClaw or any other agent. See `docs/OPENCLAW.md` for copy/paste alias setup.
 
 ```bash
 ssh node-ro health

@@ -32,7 +32,8 @@ sudo install/install-node.sh \
   --allow-config-targets "/etc/agentictl/runtime.yaml /etc/agentictl/models.yaml"
 ```
 
-Add SSH aliases on the agent host:
+Add SSH aliases in `~/.ssh/config` on the agent host, meaning the host, user account, or container that will run `ssh`.
+These aliases are client-side shortcuts, not settings on the managed node:
 
 ```sshconfig
 Host node-ro
@@ -47,6 +48,15 @@ Host node-act
   IdentityFile ~/.ssh/agentictl_act
   BatchMode yes
 ```
+
+Verify the aliases from the same environment before giving them to an agent:
+
+```bash
+ssh node-ro health
+ssh node-act capabilities
+```
+
+For OpenClaw-specific alias setup, including copy/paste commands and container notes, see `docs/OPENCLAW.md`.
 
 ## Package
 

@@ -135,7 +135,56 @@ The action executor still refuses changes unless:
 
 ## 6. Configure SSH Aliases For OpenClaw
 
-Add aliases on the OpenClaw host:
+An SSH alias is a client-side shortcut stored in the SSH config of the environment that runs OpenClaw commands.
+It is not added on the managed node. Add it on the OpenClaw host, meaning the machine, VM, user account, or container where OpenClaw will run `ssh`.
+
+The alias lets OpenClaw use short targets such as `prod-gpu-01-ro` instead of repeating:
+
+```bash
+ssh -i ~/.ssh/agentictl_ro agentictl-ro@prod-gpu-01.example.net health
+```
+
+After the alias is configured, the same command becomes:
+
+```bash
+ssh prod-gpu-01-ro health
+```
+
+Create or update `~/.ssh/config` on the OpenClaw host:
+
+```bash
+mkdir -p "$HOME/.ssh"
+chmod 700 "$HOME/.ssh"
+
+cat >> "$HOME/.ssh/config" <<'SSHCONFIG'
+Host prod-gpu-01-ro
+  HostName prod-gpu-01.example.net
+  User agentictl-ro
+  IdentityFile ~/.ssh/agentictl_ro
+  IdentitiesOnly yes
+  BatchMode yes
+  ForwardAgent no
+
+Host prod-gpu-01-act
+  HostName prod-gpu-01.example.net
+  User agentictl-act
+  IdentityFile ~/.ssh/agentictl_act
+  IdentitiesOnly yes
+  BatchMode yes
+  ForwardAgent no
+SSHCONFIG
+
+chmod 600 "$HOME/.ssh/config"
+```
+
+Replace:
+
+- `prod-gpu-01.example.net` with the real hostname or IP address of the managed node.
+- `prod-gpu-01-ro` with the read-only alias you want OpenClaw to use.
+- `prod-gpu-01-act` with the action alias, only if the node was installed with action support.
+- `~/.ssh/agentictl_ro` and `~/.ssh/agentictl_act` with the private key paths available to OpenClaw.
+
+The resulting `~/.ssh/config` entries look like this:
 
 ```sshconfig
 Host prod-gpu-01-ro
@@ -159,6 +208,8 @@ Use a naming convention that makes mode visible. Recommended suffixes:
 
 - `-ro` for read-only aliases.
 - `-act` for action aliases.
+
+If OpenClaw runs in Docker or another container, add the aliases inside the container or mount a host SSH directory into the container at the same `$HOME/.ssh` path. The important rule is simple: run `ssh prod-gpu-01-ro health` in the same environment where OpenClaw runs. If that command works there, the skill can use the alias.
 
 ## 7. Verify Read-Only Status
 
