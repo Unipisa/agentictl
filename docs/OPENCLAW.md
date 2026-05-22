@@ -435,6 +435,61 @@ Use shorter intervals only for small inventories. For many nodes, split checks b
 
 ## 12. Troubleshooting
 
+SSH asks for a password:
+
+This means SSH did not authenticate with the expected private key. Do not enter a password for normal agentictl access; fix key-based authentication instead.
+
+First check the username carefully. The split-user installer creates:
+
+- `agentictl-ro` for read-only access.
+- `agentictl-act` for action access.
+
+For example, this is correct:
+
+```bash
+ssh -i ~/.ssh/agentictl_ro agentictl-ro@prod-gpu-01.example.net health
+```
+
+This is wrong because the username is missing `tl`:
+
+```bash
+ssh -i ~/.ssh/agentictl_ro agentic-ro@prod-gpu-01.example.net health
+```
+
+Force public-key-only authentication while debugging. This makes SSH fail immediately instead of prompting for a password:
+
+```bash
+ssh \
+  -o PreferredAuthentications=publickey \
+  -o PasswordAuthentication=no \
+  -i ~/.ssh/agentictl_ro \
+  agentictl-ro@prod-gpu-01.example.net \
+  health
+```
+
+If you use an SSH alias, inspect what SSH resolves:
+
+```bash
+ssh -G prod-gpu-01-ro | grep -E '^(hostname|user|identityfile) '
+```
+
+Expected values:
+
+```text
+hostname prod-gpu-01.example.net
+user agentictl-ro
+identityfile ~/.ssh/agentictl_ro
+```
+
+On the managed node, check that the public key was installed for the same runtime user:
+
+```bash
+sudo getent passwd agentictl-ro
+sudo ls -ld /var/lib/agentictl-ro /var/lib/agentictl-ro/.ssh
+sudo ls -l /var/lib/agentictl-ro/.ssh/authorized_keys
+sudo grep 'agentictl-managed-readonly' /var/lib/agentictl-ro/.ssh/authorized_keys
+```
+
 Authentication fails:
 
 ```bash
