@@ -47,12 +47,19 @@ inventory_file() {
 }
 
 load_target_from_inventory() {
-  local alias="$1" inv host user identity
+  local alias="$1" inv host user mode identity
   inv="$(inventory_file)"
   [[ -f "$inv" ]] || return 1
-  while IFS=$'\t' read -r item_alias host user _mode identity _tags; do
+  while IFS=$'\t' read -r item_alias host user mode identity _tags; do
     [[ "$item_alias" == "$alias" ]] || continue
-    SSH_TARGET="${user:-agentictl}@${host:-$alias}"
+    if [[ -z "${user:-}" ]]; then
+      if [[ "${mode:-readonly}" == "act" ]]; then
+        user="agentictl-act"
+      else
+        user="agentictl-ro"
+      fi
+    fi
+    SSH_TARGET="${user}@${host:-$alias}"
     if [[ -n "${identity:-}" ]]; then
       SSH_ARGS+=(-i "$identity")
     fi

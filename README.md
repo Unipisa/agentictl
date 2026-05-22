@@ -73,7 +73,7 @@ OpenClaw-side inventory and historical readings are handled by:
 
 ```bash
 bin/agentictl-nodes list
-bin/agentictl-nodes add --alias prod-gpu-01-ro --host prod-gpu-01-ro --mode readonly
+bin/agentictl-nodes add --alias prod-gpu-01-ro --host prod-gpu-01-ro --user agentictl-ro --mode readonly
 bin/agentictl-nodes role-set --node prod-gpu-01-ro --source user --description "GPU inference node running Ollama"
 ssh prod-gpu-01-ro health | bin/agentictl-nodes record --node prod-gpu-01-ro --kind health --source "ssh prod-gpu-01-ro health"
 ssh prod-gpu-01-ro package-list --limit 5000 | bin/agentictl-nodes record --node prod-gpu-01-ro --kind packages --source "ssh prod-gpu-01-ro package-list --limit 5000"

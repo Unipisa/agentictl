@@ -86,7 +86,7 @@ See `requirements/verbs.md` for the full checklist.
 Add and list OpenClaw-side nodes:
 
 ```bash
-bin/agentictl-nodes add --alias prod-gpu-01-ro --host prod-gpu-01-ro --mode readonly --identity ~/.ssh/agentictl_ro
+bin/agentictl-nodes add --alias prod-gpu-01-ro --host prod-gpu-01-ro --user agentictl-ro --mode readonly --identity ~/.ssh/agentictl_ro
 bin/agentictl-nodes role-set --node prod-gpu-01-ro --source user --description "GPU inference node running Ollama"
 bin/agentictl-nodes list
 ```

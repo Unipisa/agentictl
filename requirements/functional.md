@@ -73,6 +73,8 @@ The OpenClaw-side helper `bin/agentictl-nodes` provides:
 
 The inventory defaults to `inventory/agentictl-nodes.tsv`. Node role descriptions default to `inventory/roles/<node>.md`. Readings default to `state/readings/YYYY-MM-DD/<node>/`.
 
+When `add` is called without `--user`, the default user must be derived from `--mode`: `agentictl-ro` for `readonly` and `agentictl-act` for `act`. Legacy single-user installs can still be represented by passing `--user agentictl` explicitly.
+
 Software-stack reasoning must use the saved node role, current package inventory, loaded kernel modules, and historical readings before recommending allowlisted package changes.
 
 ## Skill Tools

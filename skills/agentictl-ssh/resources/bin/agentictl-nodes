@@ -101,7 +101,7 @@ case "$cmd" in
     ;;
 
   add)
-    alias=""; host=""; user="agentictl"; mode="readonly"; identity=""; tags=""; role=""
+    alias=""; host=""; user=""; mode="readonly"; identity=""; tags=""; role=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --alias) alias="${2:-}"; shift 2 ;;
@@ -117,8 +117,15 @@ case "$cmd" in
     [[ -n "$alias" && -n "$host" ]] || fail 65 "--alias and --host are required"
     validate_id "$alias" "--alias"
     validate_id "$host" "--host"
-    validate_id "$user" "--user"
     [[ "$mode" == "readonly" || "$mode" == "act" ]] || fail 65 "--mode must be readonly or act"
+    if [[ -z "$user" ]]; then
+      if [[ "$mode" == "act" ]]; then
+        user="agentictl-act"
+      else
+        user="agentictl-ro"
+      fi
+    fi
+    validate_id "$user" "--user"
     [[ "$identity" != *$'\t'* && "$tags" != *$'\t'* ]] || fail 65 "tabs are not allowed"
     ensure_inventory_dir
     alias_exists "$alias" && fail 77 "node alias already exists: $alias"
@@ -127,8 +134,8 @@ case "$cmd" in
       ensure_roles_dir
       printf '%s\n' "$role" > "$(role_file_for "$alias")"
     fi
-    printf '{"ok":true,"action":"add","alias":%s,"host":%s,"mode":%s}\n' \
-      "$(json_string "$alias")" "$(json_string "$host")" "$(json_string "$mode")"
+    printf '{"ok":true,"action":"add","alias":%s,"host":%s,"user":%s,"mode":%s}\n' \
+      "$(json_string "$alias")" "$(json_string "$host")" "$(json_string "$user")" "$(json_string "$mode")"
     ;;
 
   role-set)

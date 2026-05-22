@@ -301,8 +301,8 @@ Use the agentictl SSH skill. The node prod-gpu-01-ro is a GPU inference node for
 Use `bin/agentictl-nodes` in the OpenClaw workspace to track configured nodes:
 
 ```bash
-bin/agentictl-nodes add --alias prod-gpu-01-ro --host prod-gpu-01-ro --mode readonly --identity ~/.ssh/agentictl_ro
-bin/agentictl-nodes add --alias prod-gpu-01-act --host prod-gpu-01-act --mode act --identity ~/.ssh/agentictl_act
+bin/agentictl-nodes add --alias prod-gpu-01-ro --host prod-gpu-01-ro --user agentictl-ro --mode readonly --identity ~/.ssh/agentictl_ro
+bin/agentictl-nodes add --alias prod-gpu-01-act --host prod-gpu-01-act --user agentictl-act --mode act --identity ~/.ssh/agentictl_act
 bin/agentictl-nodes role-set --node prod-gpu-01-ro --source user --description "GPU inference node running Ollama"
 bin/agentictl-nodes role-show --node prod-gpu-01-ro
 bin/agentictl-nodes list
@@ -502,6 +502,22 @@ Check:
 - The correct private key is used.
 - The node has the matching public key in the selected user's `authorized_keys`, for example `/var/lib/agentictl-ro/.ssh/authorized_keys`.
 - File permissions are `0700` for `.ssh` and `0600` for `authorized_keys`.
+
+OpenClaw uses `agentictl@host` instead of `agentictl-act@host`:
+
+Check the local inventory used by the skill:
+
+```bash
+agentictl-node-tool.sh list
+```
+
+For split-user installs, action entries must show `"user":"agentictl-act"` and read-only entries must show `"user":"agentictl-ro"`. If an old inventory entry shows `"user":"agentictl"`, edit the third column in `inventory/agentictl-nodes.tsv`, delete the old row and add it again, or register a corrected alias with an explicit user:
+
+```bash
+agentictl-node-tool.sh add --alias prod-gpu-01-act --host prod-gpu-01-act --user agentictl-act --mode act --identity ~/.ssh/agentictl_act
+```
+
+Use `--user agentictl` only for legacy single-user installations.
 
 Forced command returns usage:
 

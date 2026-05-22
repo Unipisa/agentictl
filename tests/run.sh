@@ -118,9 +118,19 @@ check_fails "$ROOT/bin/agentictl" readonly fs-read --path "$TMP_DIR/readroot/etc
 export AGENTICTL_WORKSPACE_DIR="$TMP_DIR/workspace"
 output="$("$ROOT/bin/agentictl-nodes" add --alias node-ro --host node.example.net --mode readonly --identity "$TMP_DIR/key" --role "GPU inference node for local models")"
 check_contains "$output" '"action":"add"'
+check_contains "$output" '"user":"agentictl-ro"'
+
+output="$("$ROOT/bin/agentictl-nodes" add --alias node-act --host node.example.net --mode act --identity "$TMP_DIR/key-act")"
+check_contains "$output" '"user":"agentictl-act"'
+
+output="$("$ROOT/bin/agentictl-nodes" add --alias node-legacy --host node.example.net --user agentictl --mode act --identity "$TMP_DIR/key-legacy")"
+check_contains "$output" '"user":"agentictl"'
 
 output="$("$ROOT/bin/agentictl-nodes" list)"
 check_contains "$output" '"alias":"node-ro"'
+check_contains "$output" '"user":"agentictl-ro"'
+check_contains "$output" '"alias":"node-act"'
+check_contains "$output" '"user":"agentictl-act"'
 check_contains "$output" 'GPU inference node'
 
 output="$(bash "$SKILL_TOOL_DIR/agentictl-node-tool.sh" list)"

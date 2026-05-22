@@ -20,6 +20,8 @@ Use the SSH host alias or `user@host` provided by the user or workspace notes. P
 
 In the recommended split-user installation, read-only aliases use user `agentictl-ro` and action aliases use user `agentictl-act`. Do not use the action alias for diagnostics unless the read-only alias is unavailable and the user explicitly approves that fallback.
 
+If a local inventory entry resolves an action node to `agentictl@host`, treat it as a stale legacy entry unless the user explicitly says the node was installed in single-user mode. For split-user nodes, ask the user to correct the inventory so `readonly` entries use `agentictl-ro` and `act` entries use `agentictl-act`.
+
 If the target is ambiguous, ask which node or alias to use before running commands.
 
 ## Bundled Tools
@@ -28,7 +30,7 @@ Prefer the bundled scripts when this skill directory is available:
 
 ```bash
 skills/agentictl-ssh/scripts/agentictl-node-tool.sh list
-skills/agentictl-ssh/scripts/agentictl-node-tool.sh add --alias prod-gpu-01-ro --host prod-gpu-01-ro --mode readonly --identity ~/.ssh/agentictl_ro
+skills/agentictl-ssh/scripts/agentictl-node-tool.sh add --alias prod-gpu-01-ro --host prod-gpu-01-ro --user agentictl-ro --mode readonly --identity ~/.ssh/agentictl_ro
 skills/agentictl-ssh/scripts/agentictl-ssh-tool.sh --target prod-gpu-01-ro --record-kind health -- health
 skills/agentictl-ssh/scripts/agentictl-bootstrap-instructions.sh --host prod-gpu-01.example.net --admin-user admin --role "GPU inference node running Ollama"
 ```
@@ -131,8 +133,8 @@ bin/agentictl-nodes list
 Add a node alias after the user provides or approves the alias and host:
 
 ```bash
-bin/agentictl-nodes add --alias prod-gpu-01-ro --host prod-gpu-01-ro --mode readonly --identity ~/.ssh/agentictl_ro
-bin/agentictl-nodes add --alias prod-gpu-01-act --host prod-gpu-01-act --mode act --identity ~/.ssh/agentictl_act
+bin/agentictl-nodes add --alias prod-gpu-01-ro --host prod-gpu-01-ro --user agentictl-ro --mode readonly --identity ~/.ssh/agentictl_ro
+bin/agentictl-nodes add --alias prod-gpu-01-act --host prod-gpu-01-act --user agentictl-act --mode act --identity ~/.ssh/agentictl_act
 ```
 
 When the user describes the node's role, save that description locally before using it for software-stack decisions:
