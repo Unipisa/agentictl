@@ -11,6 +11,7 @@ TARBALL="dist/agentictl-0.1.0.tar.gz"
 READONLY_KEY="${HOME:-.}/.ssh/agentictl_ro"
 ACTION_KEY="${HOME:-.}/.ssh/agentictl_act"
 READONLY_ONLY="false"
+READONLY_EXTRA_GROUPS=""
 ALLOW_SERVICE_RESTART="ollama.service agentictl-agent.service"
 ALLOW_PACKAGE_INSTALL="htop jq"
 ALLOW_CONFIG_TARGETS="/etc/agentictl/runtime.yaml /etc/agentictl/models.yaml"
@@ -33,6 +34,7 @@ Options:
   --readonly-key PATH
   --action-key PATH
   --readonly-only
+  --readonly-extra-groups LIST
   --allow-service-restart LIST
   --allow-package-install LIST
   --allow-config-targets LIST
@@ -69,6 +71,7 @@ while [[ $# -gt 0 ]]; do
     --readonly-key) READONLY_KEY="${2:-}"; shift 2 ;;
     --action-key) ACTION_KEY="${2:-}"; shift 2 ;;
     --readonly-only) READONLY_ONLY="true"; shift ;;
+    --readonly-extra-groups) READONLY_EXTRA_GROUPS="${2:-}"; shift 2 ;;
     --allow-service-restart) ALLOW_SERVICE_RESTART="${2:-}"; shift 2 ;;
     --allow-package-install) ALLOW_PACKAGE_INSTALL="${2:-}"; shift 2 ;;
     --allow-config-targets) ALLOW_CONFIG_TARGETS="${2:-}"; shift 2 ;;
@@ -153,6 +156,9 @@ REMOTE_HEAD
 
 if [[ "$READONLY_ONLY" != "true" ]]; then
   printf '  --action-public-key-file /tmp/agentictl_act.pub \\\n'
+fi
+if [[ -n "$READONLY_EXTRA_GROUPS" ]]; then
+  printf '  --readonly-extra-groups %s \\\n' "$(sq "$READONLY_EXTRA_GROUPS")"
 fi
 printf '  --allow-service-restart %s \\\n' "$(sq "$ALLOW_SERVICE_RESTART")"
 printf '  --allow-package-install %s \\\n' "$(sq "$ALLOW_PACKAGE_INSTALL")"

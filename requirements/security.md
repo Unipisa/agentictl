@@ -25,7 +25,7 @@ Read-only and action keys should be separate.
 
 Recommended installation uses separate Unix users:
 
-- `agentictl-ro`: forced to read-only mode and no sudo permission.
+- `agentictl-ro`: forced to read-only mode and no sudo permission. It may be added to explicitly requested existing read-only groups, such as log-reader groups, to satisfy Unix file permissions.
 - `agentictl-act`: forced to action mode and sudo-limited to `agentictl-act`.
 
 Both users may share append access to the audit log through a dedicated audit group, default `agentictl-audit`. The read-only user must not own or write staging and backup directories used by action verbs.

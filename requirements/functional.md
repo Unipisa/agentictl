@@ -59,6 +59,8 @@ Filesystem read verbs must also load policy and enforce:
 - `AGENTICTL_MAX_LIST_ENTRIES`
 - `AGENTICTL_MAX_LIST_DEPTH`
 
+`ALLOW_LOG_ROOTS` defines allowed paths only; Unix file permissions still apply. Installations that need read-only access to protected logs must grant that through explicit existing groups, for example `--readonly-extra-groups "adm systemd-journal"`, not through sudo.
+
 ## Local Inventory And Readings
 
 The OpenClaw-side helper `bin/agentictl-nodes` provides:

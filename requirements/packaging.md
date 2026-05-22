@@ -7,6 +7,7 @@ The installer must:
 - Create or update dedicated SSH users.
 - Support the legacy single-user layout with user `agentictl`.
 - Support `--split-users`, defaulting to `agentictl-ro` and `agentictl-act`.
+- Support `--readonly-extra-groups` for adding the read-only runtime user to existing Unix groups such as `adm` or `systemd-journal` without granting sudo.
 - Install binaries under `/opt/agentictl/bin`.
 - Install policy under `/opt/agentictl/config/policy.env`.
 - Include `AGENTICTL_PACKAGE_MANAGER=auto` in newly generated policy files.

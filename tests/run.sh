@@ -150,6 +150,9 @@ output="$(bash "$SKILL_TOOL_DIR/agentictl-bootstrap-instructions.sh" --host node
 check_contains "$output" 'ssh "$ADMIN_USER@$NODE_HOST"'
 check_contains "$output" 'agentictl-node-tool.sh add'
 
+output="$(bash "$SKILL_TOOL_DIR/agentictl-bootstrap-instructions.sh" --host node.example.net --admin-user admin --readonly-extra-groups "adm systemd-journal")"
+check_contains "$output" '--readonly-extra-groups'
+
 output="$("$TMP_DIR/installed-bin/agentictl-bootstrap-instructions.sh" --host node.example.net --admin-user admin --readonly-only)"
 check_contains "$output" '--readonly-public-key-file'
 

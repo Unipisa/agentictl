@@ -32,6 +32,15 @@ sudo install/install-node.sh \
   --allow-config-targets "/etc/agentictl/runtime.yaml /etc/agentictl/models.yaml"
 ```
 
+If `agentictl-ro` must read logs that are group-protected, add existing log-reader groups explicitly:
+
+```bash
+# Add this option to the install command when these groups exist on the node:
+--readonly-extra-groups "adm systemd-journal"
+```
+
+This does not grant sudo. It only lets the read-only forced-command user satisfy Unix file permissions for logs such as `/var/log/nginx/*.log` when those files are readable by one of the selected groups. If your distro uses a different group or ACL policy, use that group instead.
+
 Add SSH aliases in `~/.ssh/config` on the agent host, meaning the host, user account, or container that will run `ssh`.
 These aliases are client-side shortcuts, not settings on the managed node:
 
@@ -103,6 +112,8 @@ AGENTICTL_MAX_LIST_DEPTH=5
 ```
 
 The action executor must be the only path to privileged changes. The installer adds a sudoers rule for `/opt/agentictl/bin/agentictl-act *` only when an action public key is installed. With `--split-users`, only `agentictl-act` receives that sudoers rule; `agentictl-ro` receives no sudo permission. If no action key is supplied, the managed sudoers file is removed.
+
+`ALLOW_LOG_ROOTS` controls where `log-read` may read. It does not override Unix file permissions. If a log file is readable only by `root` or a group, grant read-only access through `--readonly-extra-groups` or filesystem ACLs, not by giving sudo to the read-only user.
 
 ## Software Inventory
 

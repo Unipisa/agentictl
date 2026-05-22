@@ -127,6 +127,15 @@ command="/opt/agentictl/bin/agentictl act",no-pty,no-agent-forwarding,no-X11-for
 
 With `--split-users`, the first entry belongs to `agentictl-ro` and the second belongs to `agentictl-act`. Only `agentictl-act` receives sudo permission for `/opt/agentictl/bin/agentictl-act *`. Both users can append `/opt/agentictl/state/audit.log` through the shared `agentictl-audit` group, but only the action user owns staging and backup directories.
 
+If read-only checks must inspect protected service logs, add existing log-reader groups during install:
+
+```bash
+# Add this option to the install command when these groups exist on the node:
+--readonly-extra-groups "adm systemd-journal"
+```
+
+This is useful for logs such as `/var/log/nginx/*.log` when the distro makes them group-readable. It does not grant sudo to `agentictl-ro`; it only satisfies Unix file permissions. Use the groups that actually own readable logs on that node.
+
 The action executor still refuses changes unless:
 
 - The target is allowlisted in `/opt/agentictl/config/policy.env`.
@@ -529,6 +538,13 @@ Action command is denied:
 - Check `/opt/agentictl/config/policy.env`.
 - Confirm the target is allowlisted.
 - Run the matching `--dry-run` first.
+
+Read-only log read is denied:
+
+- Confirm the file path is under `ALLOW_LOG_ROOTS`.
+- Check Unix permissions with `sudo ls -l /var/log/nginx`.
+- If the file is group-readable, rerun the installer with `--readonly-extra-groups "GROUP"` for the relevant existing group, for example `adm` on many Debian/Ubuntu systems.
+- If the file is not group-readable, use filesystem ACLs for `agentictl-ro` or a dedicated log-reader group. Do not grant sudo to `agentictl-ro`.
 
 Audit log:
 

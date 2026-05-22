@@ -53,7 +53,7 @@ When the user wants to add or install a node, give the shortest terminal path fi
 skills/agentictl-ssh/scripts/agentictl-bootstrap-instructions.sh --host HOST --admin-user ADMIN_USER --role "ROLE"
 ```
 
-Use `--readonly-only` when the user wants diagnostics without actions. Keep the bootstrap instructions terminal-oriented; do not narrate every command unless the user asks. Explain that this uses an existing admin SSH account only for first install, then runtime access uses `agentictl-ro` and `agentictl-act`.
+Use `--readonly-only` when the user wants diagnostics without actions. If the user says read-only checks must inspect protected logs such as nginx logs, include `--readonly-extra-groups "adm systemd-journal"` or the distro-specific existing log-reader group they provide. Keep the bootstrap instructions terminal-oriented; do not narrate every command unless the user asks. Explain that this uses an existing admin SSH account only for first install, then runtime access uses `agentictl-ro` and `agentictl-act`.
 
 ## Read-Only Commands
 
@@ -86,6 +86,8 @@ When reading files:
 - Use `fs-read --max-bytes` for config files.
 - Use `log-read --tail` for logs.
 - Never try to bypass `DENY_READ_PATHS`.
+
+If `log-read` fails because of Unix permissions, do not switch to the action alias and do not suggest sudo for `agentictl-ro`. Explain that `ALLOW_LOG_ROOTS` only authorizes paths; the node still needs Unix read permission. Ask the user to add an existing log-reader group with `--readonly-extra-groups` or to configure filesystem ACLs.
 
 ## Mutating Commands
 

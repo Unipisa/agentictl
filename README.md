@@ -43,6 +43,8 @@ ssh node-ro fs-list --path /etc --max-depth 1 --limit 50
 ssh node-ro log-read --path /var/log/syslog --tail 100
 ```
 
+Protected logs remain governed by Unix permissions. For logs such as nginx files readable by `adm`, install with `--readonly-extra-groups "adm systemd-journal"` or use a site-specific log-reader group; `agentictl-ro` still receives no sudo.
+
 Action preview and execution:
 
 ```bash

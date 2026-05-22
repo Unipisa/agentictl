@@ -37,6 +37,15 @@ sudo install/install-node.sh \
 
 With `--split-users`, the installer creates `agentictl-ro` and `agentictl-act`. Only `agentictl-act` receives a sudoers rule for `/opt/agentictl/bin/agentictl-act *`. The audit log is owned by `root:agentictl-audit` with mode `0660`, so both runtime users can append audit records without making staging directories writable by the read-only user. If you omit `--action-public-key-file`, the installer creates no sudoers entry and removes the managed sudoers file if present.
 
+If read-only diagnostics must read protected service logs, add the read-only user to existing log-reader groups during install:
+
+```bash
+# Add this option to the install command when these groups exist on the node:
+--readonly-extra-groups "adm systemd-journal"
+```
+
+Use only groups that already exist on the node. This is for Unix read permission only; it does not grant sudo to `agentictl-ro`.
+
 Without `--split-users`, the installer keeps the legacy single-user layout with user `agentictl`, but sudoers is still created only when an action public key is installed.
 
 ## SSH Usage

@@ -14,6 +14,7 @@ for key in /keys/agentictl_ro.pub /keys/agentictl_act.pub; do
 done
 
 ssh-keygen -A
+groupadd --system agentictl-logread
 
 /src/install/install-node.sh \
   --user agentictl-smoke \
@@ -35,6 +36,7 @@ ssh-keygen -A
   --split-users \
   --readonly-public-key-file /keys/agentictl_ro.pub \
   --action-public-key-file /keys/agentictl_act.pub \
+  --readonly-extra-groups "agentictl-logread" \
   --allow-service-restart "fake.service agentictl-agent.service" \
   --allow-package-install "htop jq" \
   --allow-config-targets "/etc/agentictl/runtime.yaml" \
@@ -48,6 +50,7 @@ if sudo -l -U agentictl-ro 2>/dev/null | grep -F '/opt/agentictl/bin/agentictl-a
   exit 1
 fi
 id -nG agentictl-ro | grep -w 'agentictl-audit' >/dev/null
+id -nG agentictl-ro | grep -w 'agentictl-logread' >/dev/null
 id -nG agentictl-act | grep -w 'agentictl-audit' >/dev/null
 [[ "$(stat -c '%U:%G:%a' /opt/agentictl/state/audit.log)" == 'root:agentictl-audit:660' ]] || {
   printf 'unexpected audit log permissions\n' >&2
@@ -59,6 +62,10 @@ id -nG agentictl-act | grep -w 'agentictl-audit' >/dev/null
 }
 
 printf 'agentictl test log line 1\nagentictl test log line 2\n' > /var/log/agentictl-test.log
+install -d -m 0750 -o root -g agentictl-logread /var/log/agentictl-private
+printf 'private log line 1\nprivate log line 2\n' > /var/log/agentictl-private/private.log
+chown root:agentictl-logread /var/log/agentictl-private/private.log
+chmod 0640 /var/log/agentictl-private/private.log
 printf 'node_setting=true\n' > /etc/agentictl-test.conf
 
 install -d -m 0755 /etc/ssh/sshd_config.d

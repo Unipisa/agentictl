@@ -12,6 +12,7 @@ SSH_FROM=""
 SPLIT_USERS="false"
 SUDOERS_FILE="/etc/sudoers.d/agentictl"
 SHARED_GROUP_NAME=""
+READONLY_EXTRA_GROUPS=""
 ALLOW_SERVICE_RESTART="ollama.service agentictl-agent.service"
 ALLOW_PACKAGE_INSTALL="nvtop htop jq"
 ALLOW_CONFIG_TARGETS="/etc/agentictl/runtime.yaml /etc/agentictl/models.yaml"
@@ -33,6 +34,7 @@ Options:
   --split-users                     Use separate Unix users for readonly and action SSH.
   --readonly-user NAME              Readonly Unix user when using --split-users.
   --action-user NAME                Action Unix user when using --split-users.
+  --readonly-extra-groups LIST      Existing Unix groups to add readonly user to, e.g. "adm systemd-journal".
   --base-dir PATH                   Install prefix, default: /opt/agentictl.
   --ssh-from CIDR_OR_HOST_PATTERN   Optional authorized_keys from="..." restriction.
   --allow-service-restart LIST      Space-separated systemd service allowlist.
@@ -61,6 +63,7 @@ while [[ $# -gt 0 ]]; do
     --split-users) SPLIT_USERS="true"; shift ;;
     --readonly-user) READONLY_USER_NAME="${2:-}"; shift 2 ;;
     --action-user) ACTION_USER_NAME="${2:-}"; shift 2 ;;
+    --readonly-extra-groups) READONLY_EXTRA_GROUPS="${2:-}"; shift 2 ;;
     --base-dir) BASE_DIR="${2:-}"; shift 2 ;;
     --ssh-from) SSH_FROM="${2:-}"; shift 2 ;;
     --allow-service-restart) ALLOW_SERVICE_RESTART="${2:-}"; shift 2 ;;
@@ -126,6 +129,21 @@ ensure_group() {
   fi
 }
 
+add_user_to_existing_groups() {
+  local user="$1" groups="$2" group old_ifs
+  old_ifs="$IFS"
+  IFS=' '
+  for group in $groups; do
+    IFS="$old_ifs"
+    [[ -n "$group" ]] || { IFS=' '; continue; }
+    [[ "$group" =~ ^[a-z_][a-z0-9_-]*[$]?$ ]] || fail "unsafe readonly extra group name: $group"
+    getent group "$group" >/dev/null 2>&1 || fail "readonly extra group does not exist: $group"
+    usermod -a -G "$group" "$user"
+    IFS=' '
+  done
+  IFS="$old_ifs"
+}
+
 ensure_user "$READONLY_USER_NAME"
 if [[ -n "$ACTION_PUBLIC_KEY_FILE" ]]; then
   ensure_user "$ACTION_USER_NAME"
@@ -140,6 +158,8 @@ if [[ "$SPLIT_USERS" == "true" ]]; then
 else
   SHARED_GROUP_NAME="$(user_group "$READONLY_USER_NAME")"
 fi
+
+add_user_to_existing_groups "$READONLY_USER_NAME" "$READONLY_EXTRA_GROUPS"
 
 STATE_OWNER="$READONLY_USER_NAME"
 if [[ -n "$ACTION_PUBLIC_KEY_FILE" ]]; then
@@ -251,6 +271,9 @@ if [[ -n "$ACTION_PUBLIC_KEY_FILE" ]]; then
   printf '  action user: %s\n' "$ACTION_USER_NAME"
 fi
 printf '  audit group: %s\n' "$SHARED_GROUP_NAME"
+if [[ -n "$READONLY_EXTRA_GROUPS" ]]; then
+  printf '  readonly extra groups: %s\n' "$READONLY_EXTRA_GROUPS"
+fi
 printf '  base: %s\n' "$BASE_DIR"
 printf '  readonly ssh: ssh %s@HOST health\n' "$READONLY_USER_NAME"
 if [[ -n "$ACTION_PUBLIC_KEY_FILE" ]]; then

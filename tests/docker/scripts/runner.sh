@@ -79,6 +79,9 @@ check_contains "$output" 'node_setting=true'
 output="$(ssh_ro log-read --path /var/log/agentictl-test.log --tail 1)"
 check_contains "$output" 'agentictl test log line 2'
 
+output="$(ssh_ro log-read --path /var/log/agentictl-private/private.log --tail 1)"
+check_contains "$output" 'private log line 2'
+
 check_fails ssh_ro fs-read --path /etc/ssh/sshd_config
 
 output="$(ssh_act capabilities)"
