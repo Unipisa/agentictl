@@ -72,3 +72,7 @@ Package inventory and loaded kernel modules are read-only diagnostics. They must
 - Be treated as potentially sensitive operational metadata when stored locally.
 
 Automated package recommendations must compare the saved node role, current package inventory, loaded kernel modules, and historical readings. Package installation still requires the action mode allowlist, package-manager detection or an explicit package-manager override, `--dry-run`, user approval, and `--execute`.
+
+Package upgrades must use a separate upgrade allowlist. Full package-manager upgrades must require an explicit policy flag and explicit user approval after dry-run.
+
+Upgrading `agentictl` itself must not be implemented as an `agentictl-act` verb. Node upgrades must use an existing admin SSH account, a checksum-verified tarball from the skill resources, and the node installer.

@@ -18,8 +18,10 @@ The Docker test suite must cover:
 - Split-user installation can add the read-only user to an explicit existing log-reader group and read a protected log without granting read-only sudo.
 - Forced-command SSH for read-only mode.
 - Package inventory and kernel module inventory in read-only mode.
+- Package upgrade inventory in read-only mode.
 - Forced-command SSH for action mode.
 - Package-install dry-run reports the selected package manager.
+- Package-upgrade dry-run reports the selected package manager for named and full upgrades, with policy denial for unallowed packages.
 - Package manager override coverage for supported installers in local tests.
 - Policy denial.
 - Unsafe token denial.
@@ -33,6 +35,7 @@ The Docker test suite must cover:
 - Bundled skill tool wrappers for inventory operations, SSH recording, and `--execute` gating in local tests.
 - Self-contained skill resource installer and vendored `agentictl-nodes` consistency in local tests.
 - Bootstrap instruction generation for adding a node from chat in local tests.
+- Skill-vendored node payload manifest and upgrade command generation in local tests.
 
 ## Local Unit Test
 

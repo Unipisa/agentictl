@@ -30,6 +30,8 @@ sudo install/install-node.sh \
   --action-public-key-file ~/.ssh/agentictl_act.pub \
   --allow-service-restart "ollama.service agentictl-agent.service" \
   --allow-package-install "htop jq" \
+  --allow-package-upgrade "htop jq" \
+  --allow-package-upgrade-all false \
   --allow-config-targets "/etc/agentictl/runtime.yaml /etc/agentictl/models.yaml" \
   --allow-read-roots "/var/log /etc" \
   --allow-log-roots "/var/log"
@@ -57,6 +59,7 @@ ssh node-ro health
 ssh node-ro service-status --unit ollama.service
 ssh node-ro journal --unit ollama.service --since 30m --lines 200
 ssh node-ro package-list --limit 2000
+ssh node-ro package-upgrades --limit 200
 ssh node-ro kernel-modules --limit 1000
 ssh node-ro fs-list --path /etc --max-depth 1 --limit 50
 ssh node-ro fs-read --path /etc/agentictl/runtime.yaml --max-bytes 4096
@@ -64,6 +67,7 @@ ssh node-ro log-read --path /var/log/syslog --tail 100
 
 ssh node-act service-restart --unit ollama.service --dry-run
 ssh node-act service-restart --unit ollama.service --execute
+ssh node-act package-upgrade --name jq --dry-run
 ```
 
 Config changes are staged through stdin, then applied from the staging directory:
@@ -129,6 +133,14 @@ For a new node, generate the simplest terminal bootstrap commands with:
 ```bash
 skills/agentictl-ssh/scripts/agentictl-bootstrap-instructions.sh --host node.example.net --admin-user admin --role "Managed Linux node"
 ```
+
+After updating the skill, upgrade an existing node with the skill-vendored payload:
+
+```bash
+skills/agentictl-ssh/scripts/agentictl-node-upgrade.sh --host node.example.net --admin-user admin --verify-ro node-ro --verify-act node-act
+```
+
+Add `--execute` only after reviewing the printed plan. The upgrade uses the admin SSH account and reruns the node installer; it does not use `agentictl-act` to update itself.
 
 ## Package
 

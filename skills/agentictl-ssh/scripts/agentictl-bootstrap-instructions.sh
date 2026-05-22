@@ -14,6 +14,8 @@ READONLY_ONLY="false"
 READONLY_EXTRA_GROUPS=""
 ALLOW_SERVICE_RESTART="ollama.service agentictl-agent.service"
 ALLOW_PACKAGE_INSTALL="htop jq"
+ALLOW_PACKAGE_UPGRADE="htop jq"
+ALLOW_PACKAGE_UPGRADE_ALL="false"
 ALLOW_CONFIG_TARGETS="/etc/agentictl/runtime.yaml /etc/agentictl/models.yaml"
 ALLOW_READ_ROOTS="/var/log /etc"
 ALLOW_LOG_ROOTS="/var/log"
@@ -37,6 +39,8 @@ Options:
   --readonly-extra-groups LIST
   --allow-service-restart LIST
   --allow-package-install LIST
+  --allow-package-upgrade LIST
+  --allow-package-upgrade-all BOOL
   --allow-config-targets LIST
   --allow-read-roots LIST
   --allow-log-roots LIST
@@ -74,6 +78,8 @@ while [[ $# -gt 0 ]]; do
     --readonly-extra-groups) READONLY_EXTRA_GROUPS="${2:-}"; shift 2 ;;
     --allow-service-restart) ALLOW_SERVICE_RESTART="${2:-}"; shift 2 ;;
     --allow-package-install) ALLOW_PACKAGE_INSTALL="${2:-}"; shift 2 ;;
+    --allow-package-upgrade) ALLOW_PACKAGE_UPGRADE="${2:-}"; shift 2 ;;
+    --allow-package-upgrade-all) ALLOW_PACKAGE_UPGRADE_ALL="${2:-}"; shift 2 ;;
     --allow-config-targets) ALLOW_CONFIG_TARGETS="${2:-}"; shift 2 ;;
     --allow-read-roots) ALLOW_READ_ROOTS="${2:-}"; shift 2 ;;
     --allow-log-roots) ALLOW_LOG_ROOTS="${2:-}"; shift 2 ;;
@@ -162,6 +168,8 @@ if [[ -n "$READONLY_EXTRA_GROUPS" ]]; then
 fi
 printf '  --allow-service-restart %s \\\n' "$(sq "$ALLOW_SERVICE_RESTART")"
 printf '  --allow-package-install %s \\\n' "$(sq "$ALLOW_PACKAGE_INSTALL")"
+printf '  --allow-package-upgrade %s \\\n' "$(sq "$ALLOW_PACKAGE_UPGRADE")"
+printf '  --allow-package-upgrade-all %s \\\n' "$(sq "$ALLOW_PACKAGE_UPGRADE_ALL")"
 printf '  --allow-config-targets %s \\\n' "$(sq "$ALLOW_CONFIG_TARGETS")"
 printf '  --allow-read-roots %s \\\n' "$(sq "$ALLOW_READ_ROOTS")"
 printf '  --allow-log-roots %s\n' "$(sq "$ALLOW_LOG_ROOTS")"

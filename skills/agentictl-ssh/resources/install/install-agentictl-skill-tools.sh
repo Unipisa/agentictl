@@ -42,10 +42,17 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 
 install -d -m 0755 "$BIN_DIR"
+SHARE_DIR="$(cd -- "$BIN_DIR/.." && pwd)/share/agentictl-ssh"
+install -d -m 0755 "$SHARE_DIR/resources/dist" "$SHARE_DIR/resources/node"
 install -m 0755 "$SKILL_DIR/resources/bin/agentictl-nodes" "$BIN_DIR/agentictl-nodes"
 install -m 0755 "$SKILL_DIR/scripts/agentictl-node-tool.sh" "$BIN_DIR/agentictl-node-tool.sh"
 install -m 0755 "$SKILL_DIR/scripts/agentictl-ssh-tool.sh" "$BIN_DIR/agentictl-ssh-tool.sh"
 install -m 0755 "$SKILL_DIR/scripts/agentictl-bootstrap-instructions.sh" "$BIN_DIR/agentictl-bootstrap-instructions.sh"
+install -m 0755 "$SKILL_DIR/scripts/agentictl-node-upgrade.sh" "$BIN_DIR/agentictl-node-upgrade.sh"
+install -m 0644 "$SKILL_DIR/resources/dist/agentictl-0.1.0.tar.gz" "$SHARE_DIR/resources/dist/agentictl-0.1.0.tar.gz"
+install -m 0644 "$SKILL_DIR/resources/dist/agentictl-0.1.0.manifest" "$SHARE_DIR/resources/dist/agentictl-0.1.0.manifest"
+install -m 0755 "$SKILL_DIR/resources/node/install-node.sh" "$SHARE_DIR/resources/node/install-node.sh"
 
-printf '{"ok":true,"bin_dir":%s,"installed":["agentictl-nodes","agentictl-node-tool.sh","agentictl-ssh-tool.sh","agentictl-bootstrap-instructions.sh"]}\n' \
-  "$(json_string "$BIN_DIR")"
+printf '{"ok":true,"bin_dir":%s,"share_dir":%s,"installed":["agentictl-nodes","agentictl-node-tool.sh","agentictl-ssh-tool.sh","agentictl-bootstrap-instructions.sh","agentictl-node-upgrade.sh","resources/dist/agentictl-0.1.0.tar.gz","resources/node/install-node.sh"]}\n' \
+  "$(json_string "$BIN_DIR")" \
+  "$(json_string "$SHARE_DIR")"

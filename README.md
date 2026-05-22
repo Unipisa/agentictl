@@ -38,6 +38,7 @@ ssh node-ro health
 ssh node-ro service-status --unit ollama.service
 ssh node-ro journal --unit ollama.service --since 30m --lines 200
 ssh node-ro package-list --limit 2000
+ssh node-ro package-upgrades --limit 200
 ssh node-ro kernel-modules --limit 1000
 ssh node-ro fs-list --path /etc --max-depth 1 --limit 50
 ssh node-ro log-read --path /var/log/syslog --tail 100
@@ -50,6 +51,7 @@ Action preview and execution:
 ```bash
 ssh node-act service-restart --unit ollama.service --dry-run
 ssh node-act service-restart --unit ollama.service --execute
+ssh node-act package-upgrade --name jq --dry-run
 ```
 
 Config changes are staged before apply:
@@ -90,6 +92,8 @@ skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh --bin-di
 ```
 
 For adding a node from chat, the skill can generate a minimal terminal bootstrap block with `agentictl-bootstrap-instructions.sh`.
+
+For upgrading an existing node after the skill is updated, the skill includes a checksum-manifested node payload and `agentictl-node-upgrade.sh`. The upgrade path uses an existing admin SSH account to copy the tarball, rerun the installer, and verify RO/ACT aliases; it does not use `agentictl-act` to upgrade itself.
 
 ## Documentation
 

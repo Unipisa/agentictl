@@ -115,6 +115,8 @@ sudo install/install-node.sh \
   --action-public-key-file /tmp/agentictl_act.pub \
   --allow-service-restart "ollama.service agentictl-agent.service" \
   --allow-package-install "htop jq" \
+  --allow-package-upgrade "htop jq" \
+  --allow-package-upgrade-all false \
   --allow-config-targets "/etc/agentictl/runtime.yaml /etc/agentictl/models.yaml"
 ```
 
@@ -230,6 +232,7 @@ ssh prod-gpu-01-ro health
 ssh prod-gpu-01-ro service-status --unit ollama.service
 ssh prod-gpu-01-ro journal --unit ollama.service --since 30m --lines 200
 ssh prod-gpu-01-ro package-list --limit 2000
+ssh prod-gpu-01-ro package-upgrades --limit 200
 ssh prod-gpu-01-ro kernel-modules --limit 1000
 ssh prod-gpu-01-ro fs-list --path /etc --max-depth 1 --limit 50
 ssh prod-gpu-01-ro log-read --path /var/log/syslog --tail 100
@@ -241,6 +244,7 @@ Expected behavior:
 - `health` returns JSON with `"ok":true`.
 - `service-status` returns stable `systemctl show` fields.
 - `package-list` returns installed packages from the node package database.
+- `package-upgrades` returns packages that can be updated according to current package-manager metadata.
 - `kernel-modules` returns loaded modules from `/proc/modules`.
 - `fs-list` lists only paths allowed by policy and skips denied sensitive paths.
 - `log-read` returns capped log content from allowed log roots.
@@ -261,6 +265,7 @@ Only for action-enabled nodes:
 ```bash
 ssh prod-gpu-01-act capabilities
 ssh prod-gpu-01-act service-restart --unit ollama.service --dry-run
+ssh prod-gpu-01-act package-upgrade --name jq --dry-run
 ```
 
 Expected behavior:
@@ -329,6 +334,9 @@ ssh prod-gpu-01-ro service-status --unit ollama.service \
 ssh prod-gpu-01-ro package-list --limit 5000 \
   | bin/agentictl-nodes record --node prod-gpu-01-ro --kind packages --source "ssh prod-gpu-01-ro package-list --limit 5000"
 
+ssh prod-gpu-01-ro package-upgrades --limit 500 \
+  | bin/agentictl-nodes record --node prod-gpu-01-ro --kind package-upgrades --source "ssh prod-gpu-01-ro package-upgrades --limit 500"
+
 ssh prod-gpu-01-ro kernel-modules --limit 2000 \
   | bin/agentictl-nodes record --node prod-gpu-01-ro --kind kernel-modules --source "ssh prod-gpu-01-ro kernel-modules --limit 2000"
 
@@ -367,6 +375,14 @@ To add a node from chat, ask `/agentictl_ssh` to generate terminal bootstrap com
 ```bash
 skills/agentictl-ssh/scripts/agentictl-bootstrap-instructions.sh --host prod-gpu-01.example.net --admin-user admin --role "GPU inference node running Ollama"
 ```
+
+To upgrade a node after updating the skill, use the skill-vendored tarball and checksum manifest:
+
+```bash
+skills/agentictl-ssh/scripts/agentictl-node-upgrade.sh --host prod-gpu-01.example.net --admin-user admin --verify-ro prod-gpu-01-ro --verify-act prod-gpu-01-act
+```
+
+Review the printed plan first. Add `--execute` only after approval. This uses the admin SSH account to copy the tarball and rerun the installer; do not use `agentictl-act` to upgrade the agentictl installation itself.
 
 Use `agentictl-ssh-tool.sh --allow-execute` only after explicit approval for the specific action.
 

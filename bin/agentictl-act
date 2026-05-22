@@ -46,6 +46,8 @@ load_policy() {
   source "$POLICY_FILE"
   : "${ALLOW_SERVICE_RESTART:=}"
   : "${ALLOW_PACKAGE_INSTALL:=}"
+  : "${ALLOW_PACKAGE_UPGRADE:=}"
+  : "${ALLOW_PACKAGE_UPGRADE_ALL:=false}"
   : "${ALLOW_CONFIG_TARGETS:=}"
   : "${AGENTICTL_MAX_CONFIG_BYTES:=${OPENCLAW_MAX_CONFIG_BYTES:-1048576}}"
   MAX_CONFIG_BYTES="$AGENTICTL_MAX_CONFIG_BYTES"
@@ -128,6 +130,102 @@ detect_package_installer() {
   fi
 }
 
+detect_package_upgrader() {
+  local target="$1" pkg="${2:-}" requested="${AGENTICTL_PACKAGE_MANAGER:-${OPENCLAW_PACKAGE_MANAGER:-auto}}"
+  PACKAGE_MANAGER=""
+  PACKAGE_UPGRADER=()
+
+  choose_for_manager() {
+    local manager="$1"
+    case "$manager" in
+      apt|apt-get)
+        need_cmd apt-get
+        PACKAGE_MANAGER="apt"
+        if [[ "$target" == "all" ]]; then
+          PACKAGE_UPGRADER=(apt-get upgrade -y)
+        else
+          PACKAGE_UPGRADER=(apt-get install -y --only-upgrade --no-install-recommends "$pkg")
+        fi
+        ;;
+      dnf)
+        need_cmd dnf
+        PACKAGE_MANAGER="dnf"
+        if [[ "$target" == "all" ]]; then
+          PACKAGE_UPGRADER=(dnf upgrade -y)
+        else
+          PACKAGE_UPGRADER=(dnf upgrade -y "$pkg")
+        fi
+        ;;
+      yum)
+        need_cmd yum
+        PACKAGE_MANAGER="yum"
+        if [[ "$target" == "all" ]]; then
+          PACKAGE_UPGRADER=(yum update -y)
+        else
+          PACKAGE_UPGRADER=(yum update -y "$pkg")
+        fi
+        ;;
+      zypper)
+        need_cmd zypper
+        PACKAGE_MANAGER="zypper"
+        if [[ "$target" == "all" ]]; then
+          PACKAGE_UPGRADER=(zypper --non-interactive update)
+        else
+          PACKAGE_UPGRADER=(zypper --non-interactive update "$pkg")
+        fi
+        ;;
+      apk)
+        need_cmd apk
+        PACKAGE_MANAGER="apk"
+        if [[ "$target" == "all" ]]; then
+          PACKAGE_UPGRADER=(apk upgrade)
+        else
+          PACKAGE_UPGRADER=(apk upgrade "$pkg")
+        fi
+        ;;
+      pacman)
+        need_cmd pacman
+        PACKAGE_MANAGER="pacman"
+        if [[ "$target" == "all" ]]; then
+          PACKAGE_UPGRADER=(pacman -Syu --noconfirm)
+        else
+          PACKAGE_UPGRADER=(pacman -S --noconfirm "$pkg")
+        fi
+        ;;
+      *)
+        fail 65 "unsupported AGENTICTL_PACKAGE_MANAGER: $manager"
+        ;;
+    esac
+  }
+
+  case "$requested" in
+    auto) ;;
+    apt|apt-get|dnf|yum|zypper|apk|pacman)
+      choose_for_manager "$requested"
+      return 0
+      ;;
+    *)
+      fail 65 "unsupported AGENTICTL_PACKAGE_MANAGER: $requested"
+      ;;
+  esac
+
+  if command -v apt-get >/dev/null 2>&1; then
+    choose_for_manager apt
+  elif command -v dnf >/dev/null 2>&1; then
+    choose_for_manager dnf
+  elif command -v yum >/dev/null 2>&1; then
+    choose_for_manager yum
+  elif command -v zypper >/dev/null 2>&1; then
+    choose_for_manager zypper
+  elif command -v apk >/dev/null 2>&1; then
+    choose_for_manager apk
+  elif command -v pacman >/dev/null 2>&1; then
+    choose_for_manager pacman
+  else
+    fail 70 "no supported package manager found"
+  fi
+}
+
 audit() {
   local action="$1" target="$2" mode="$3" result="$4"
   printf '{"ts":%s,"actor":%s,"action":%s,"target":%s,"mode":%s,"result":%s}\n' \
@@ -169,9 +267,11 @@ load_policy
 
 case "$cmd" in
   capabilities)
-    printf '{"ok":true,"mode":"act","commands":["service-restart","package-install","config-stage","config-apply","capabilities"],"allow_service_restart":%s,"allow_package_install":%s,"allow_config_targets":%s,"staging_dir":%s}\n' \
+    printf '{"ok":true,"mode":"act","commands":["service-restart","package-install","package-upgrade","config-stage","config-apply","capabilities"],"allow_service_restart":%s,"allow_package_install":%s,"allow_package_upgrade":%s,"allow_package_upgrade_all":%s,"allow_config_targets":%s,"staging_dir":%s}\n' \
       "$(json_string "$ALLOW_SERVICE_RESTART")" \
       "$(json_string "$ALLOW_PACKAGE_INSTALL")" \
+      "$(json_string "$ALLOW_PACKAGE_UPGRADE")" \
+      "$(json_string "$ALLOW_PACKAGE_UPGRADE_ALL")" \
       "$(json_string "$ALLOW_CONFIG_TARGETS")" \
       "$(json_string "$STAGING_DIR")"
     ;;
@@ -225,6 +325,50 @@ case "$cmd" in
     printf '{"ok":true,"action":"package-install","package":"%s","manager":%s}\n' \
       "$pkg" \
       "$(json_string "$PACKAGE_MANAGER")"
+    ;;
+
+  package-upgrade)
+    pkg=""; target=""; EXECUTE="false"; DRY_RUN="false"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --name) pkg="${2:-}"; target="package"; shift 2 ;;
+        --all) target="all"; shift ;;
+        --dry-run) DRY_RUN="true"; shift ;;
+        --execute) EXECUTE="true"; shift ;;
+        *) fail 64 "unknown argument: $1" ;;
+      esac
+    done
+    [[ "$target" == "package" || "$target" == "all" ]] || fail 65 "use --name PACKAGE or --all"
+    if [[ "$target" == "package" ]]; then
+      [[ "$pkg" =~ $ALLOWED_PACKAGES_REGEX ]] || fail 65 "invalid package name"
+      contains_word "$pkg" "$ALLOW_PACKAGE_UPGRADE" || fail 77 "package upgrade not allowed: $pkg"
+    else
+      [[ "$ALLOW_PACKAGE_UPGRADE_ALL" == "true" ]] || fail 77 "package upgrade all is not allowed"
+    fi
+    detect_package_upgrader "$target" "$pkg"
+    if [[ "$DRY_RUN" == "true" ]]; then
+      if [[ "$target" == "all" ]]; then
+        printf '{"ok":true,"dry_run":true,"action":"package-upgrade","target":"all","manager":%s}\n' \
+          "$(json_string "$PACKAGE_MANAGER")"
+      else
+        printf '{"ok":true,"dry_run":true,"action":"package-upgrade","package":"%s","manager":%s}\n' \
+          "$pkg" \
+          "$(json_string "$PACKAGE_MANAGER")"
+      fi
+      exit 0
+    fi
+    require_execute_flag
+    "${PACKAGE_UPGRADER[@]}"
+    if [[ "$target" == "all" ]]; then
+      audit "package-upgrade" "all" "execute" "manager=$PACKAGE_MANAGER"
+      printf '{"ok":true,"action":"package-upgrade","target":"all","manager":%s}\n' \
+        "$(json_string "$PACKAGE_MANAGER")"
+    else
+      audit "package-upgrade" "$pkg" "execute" "manager=$PACKAGE_MANAGER"
+      printf '{"ok":true,"action":"package-upgrade","package":"%s","manager":%s}\n' \
+        "$pkg" \
+        "$(json_string "$PACKAGE_MANAGER")"
+    fi
     ;;
 
   config-stage)
@@ -295,6 +439,6 @@ case "$cmd" in
     ;;
 
   *)
-    fail 64 "usage: agentictl-act {capabilities|service-restart|package-install|config-stage|config-apply}"
+    fail 64 "usage: agentictl-act {capabilities|service-restart|package-install|package-upgrade|config-stage|config-apply}"
     ;;
 esac

@@ -13,6 +13,10 @@ printf 'secret=true\n' > "$TMP_DIR/readroot/etc/secret.conf"
 printf 'line one\nline two\n' > "$TMP_DIR/readroot/var/log/app.log"
 cat > "$TMP_DIR/fakebin/apt-get" <<'FAKE_APT'
 #!/usr/bin/env bash
+if [[ "$*" == "-s upgrade" ]]; then
+  printf 'Inst jq [1.6] (1.7 Debian:stable [amd64])\n'
+  exit 0
+fi
 printf 'fake apt-get %s\n' "$*"
 FAKE_APT
 chmod +x "$TMP_DIR/fakebin/apt-get"
@@ -34,6 +38,8 @@ chmod +x "$TMP_DIR/fakebin/ssh"
 cat > "$TMP_DIR/config/policy.env" <<'POLICY'
 ALLOW_SERVICE_RESTART="ollama.service agentictl-agent.service"
 ALLOW_PACKAGE_INSTALL="htop jq"
+ALLOW_PACKAGE_UPGRADE="htop jq"
+ALLOW_PACKAGE_UPGRADE_ALL=true
 ALLOW_CONFIG_TARGETS="/etc/agentictl/runtime.yaml"
 AGENTICTL_MAX_CONFIG_BYTES=1048576
 POLICY
@@ -80,12 +86,24 @@ output="$(SSH_ORIGINAL_COMMAND='package-install --name htop --dry-run' "$ROOT/bi
 check_contains "$output" '"package":"htop"'
 check_contains "$output" '"manager":"apt"'
 
+output="$("$ROOT/bin/agentictl" readonly package-upgrades --limit 10)"
+check_contains "$output" '"manager":"apt"'
+check_contains "$output" '"name":"jq"'
+
+output="$(SSH_ORIGINAL_COMMAND='package-upgrade --name jq --dry-run' "$ROOT/bin/agentictl" act)"
+check_contains "$output" '"action":"package-upgrade"'
+check_contains "$output" '"package":"jq"'
+
+output="$("$ROOT/bin/agentictl" act package-upgrade --all --dry-run)"
+check_contains "$output" '"target":"all"'
+
 for package_manager in apt dnf yum zypper apk pacman; do
   output="$(AGENTICTL_PACKAGE_MANAGER="$package_manager" "$ROOT/bin/agentictl" act package-install --name htop --dry-run)"
   check_contains "$output" "\"manager\":\"$package_manager\""
 done
 
 check_fails env SSH_ORIGINAL_COMMAND='package-install --name curl --dry-run' "$ROOT/bin/agentictl" act
+check_fails env SSH_ORIGINAL_COMMAND='package-upgrade --name curl --dry-run' "$ROOT/bin/agentictl" act
 check_fails env SSH_ORIGINAL_COMMAND='service-restart --unit ollama.service;uname -a --dry-run' "$ROOT/bin/agentictl" act
 check_fails env SSH_ORIGINAL_COMMAND='service-restart --unit ../ollama.service --dry-run' "$ROOT/bin/agentictl" act
 
@@ -142,6 +160,8 @@ pass_count=$((pass_count + 1))
 output="$(bash "$ROOT/skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh" --bin-dir "$TMP_DIR/installed-bin")"
 check_contains "$output" '"ok":true'
 check_contains "$output" 'agentictl-bootstrap-instructions.sh'
+check_contains "$output" 'agentictl-node-upgrade.sh'
+check_contains "$output" 'resources/dist/agentictl-0.1.0.tar.gz'
 
 output="$("$TMP_DIR/installed-bin/agentictl-node-tool.sh" list)"
 check_contains "$output" '"alias":"node-ro"'
@@ -152,6 +172,24 @@ check_contains "$output" 'agentictl-node-tool.sh add'
 
 output="$(bash "$SKILL_TOOL_DIR/agentictl-bootstrap-instructions.sh" --host node.example.net --admin-user admin --readonly-extra-groups "adm systemd-journal")"
 check_contains "$output" '--readonly-extra-groups'
+
+printf 'payload\n' > "$TMP_DIR/agentictl-0.1.0.tar.gz"
+printf 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeReadOnlyKeyForLocalTests agentictl-ro\n' > "$TMP_DIR/agentictl_ro.pub"
+printf 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeActionKeyForLocalTests agentictl-act\n' > "$TMP_DIR/agentictl_act.pub"
+test_sha="$(sha256sum "$TMP_DIR/agentictl-0.1.0.tar.gz" | awk '{print $1}')"
+{
+  printf 'VERSION=0.1.0\n'
+  printf 'TARBALL=agentictl-0.1.0.tar.gz\n'
+  printf 'SHA256=%s\n' "$test_sha"
+} > "$TMP_DIR/agentictl-0.1.0.manifest"
+output="$(bash "$SKILL_TOOL_DIR/agentictl-node-upgrade.sh" --host node.example.net --admin-user admin --tarball "$TMP_DIR/agentictl-0.1.0.tar.gz" --manifest "$TMP_DIR/agentictl-0.1.0.manifest" --readonly-public-key-file "$TMP_DIR/agentictl_ro.pub" --action-public-key-file "$TMP_DIR/agentictl_act.pub" --readonly-extra-groups "adm systemd-journal" --allow-package-upgrade-all true --verify-ro node-ro --verify-act node-act)"
+check_contains "$output" 'AGENTICTL_REMOTE_UPGRADE'
+check_contains "$output" '--readonly-extra-groups'
+check_contains "$output" '--allow-package-upgrade-all'
+check_contains "$output" 'package-upgrades --limit 100'
+
+output="$("$TMP_DIR/installed-bin/agentictl-node-upgrade.sh" --host node.example.net --admin-user admin --readonly-public-key-file "$TMP_DIR/agentictl_ro.pub" --action-public-key-file "$TMP_DIR/agentictl_act.pub")"
+check_contains "$output" 'AGENTICTL_REMOTE_UPGRADE'
 
 output="$("$TMP_DIR/installed-bin/agentictl-bootstrap-instructions.sh" --host node.example.net --admin-user admin --readonly-only)"
 check_contains "$output" '--readonly-public-key-file'

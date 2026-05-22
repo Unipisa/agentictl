@@ -22,6 +22,8 @@ groupadd --system agentictl-logread
   --readonly-public-key-file /keys/agentictl_ro.pub \
   --allow-service-restart "" \
   --allow-package-install "" \
+  --allow-package-upgrade "" \
+  --allow-package-upgrade-all false \
   --allow-config-targets "" \
   --allow-read-roots "/var/log /etc" \
   --allow-log-roots "/var/log" \
@@ -39,6 +41,8 @@ groupadd --system agentictl-logread
   --readonly-extra-groups "agentictl-logread" \
   --allow-service-restart "fake.service agentictl-agent.service" \
   --allow-package-install "htop jq" \
+  --allow-package-upgrade "htop jq" \
+  --allow-package-upgrade-all true \
   --allow-config-targets "/etc/agentictl/runtime.yaml" \
   --allow-read-roots "/var/log /etc" \
   --allow-log-roots "/var/log" \

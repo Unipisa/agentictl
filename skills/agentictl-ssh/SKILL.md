@@ -33,6 +33,7 @@ skills/agentictl-ssh/scripts/agentictl-node-tool.sh list
 skills/agentictl-ssh/scripts/agentictl-node-tool.sh add --alias prod-gpu-01-ro --host prod-gpu-01-ro --user agentictl-ro --mode readonly --identity ~/.ssh/agentictl_ro
 skills/agentictl-ssh/scripts/agentictl-ssh-tool.sh --target prod-gpu-01-ro --record-kind health -- health
 skills/agentictl-ssh/scripts/agentictl-bootstrap-instructions.sh --host prod-gpu-01.example.net --admin-user admin --role "GPU inference node running Ollama"
+skills/agentictl-ssh/scripts/agentictl-node-upgrade.sh --host prod-gpu-01.example.net --admin-user admin --verify-ro prod-gpu-01-ro --verify-act prod-gpu-01-act
 ```
 
 Use `agentictl-node-tool.sh` for local inventory, role, and history operations. Use `agentictl-ssh-tool.sh` for SSH verbs because it validates tokens, can record successful readings, and refuses `--execute` unless `--allow-execute` is explicitly supplied. If the bundled scripts are unavailable, fall back to the raw `ssh` and `bin/agentictl-nodes` commands below.
@@ -55,6 +56,16 @@ skills/agentictl-ssh/scripts/agentictl-bootstrap-instructions.sh --host HOST --a
 
 Use `--readonly-only` when the user wants diagnostics without actions. If the user says read-only checks must inspect protected logs such as nginx logs, include `--readonly-extra-groups "adm systemd-journal"` or the distro-specific existing log-reader group they provide. Keep the bootstrap instructions terminal-oriented; do not narrate every command unless the user asks. Explain that this uses an existing admin SSH account only for first install, then runtime access uses `agentictl-ro` and `agentictl-act`.
 
+## Upgrading A Node
+
+When the user wants to update agentictl on a node, use the skill-vendored payload and print a plan first:
+
+```bash
+skills/agentictl-ssh/scripts/agentictl-node-upgrade.sh --host HOST --admin-user ADMIN_USER --verify-ro NODE_RO --verify-act NODE_ACT
+```
+
+Run it with `--execute` only after the user approves the specific node and admin account. This command copies the skill's tarball to the node, verifies its checksum, reruns the installer with `sudo`, and verifies the configured aliases. Do not use `agentictl-act` to upgrade the agentictl installation itself.
+
 ## Read-Only Commands
 
 Examples:
@@ -66,6 +77,7 @@ ssh node-ro service-status --unit ollama.service
 ssh node-ro journal --unit ollama.service --since 30m --lines 200
 ssh node-ro dmesg --level err,warn --lines 200
 ssh node-ro package-list --limit 2000
+ssh node-ro package-upgrades --limit 200
 ssh node-ro kernel-modules --limit 1000
 ssh node-ro fs-list --path /etc --max-depth 1 --limit 50
 ssh node-ro fs-stat --path /etc/agentictl/runtime.yaml
@@ -75,7 +87,7 @@ ssh node-ro log-read --path /var/log/syslog --tail 100
 
 Use read-only commands first to establish current state. Prefer `capabilities` when you need the node's advertised command surface.
 
-Use `package-list` and `kernel-modules` when the user asks about installed software, kernel capabilities, drivers, host requirements, or software stack drift. Store these results when they may influence later package decisions.
+Use `package-list`, `package-upgrades`, and `kernel-modules` when the user asks about installed software, available updates, kernel capabilities, drivers, host requirements, or software stack drift. Store these results when they may influence later package decisions.
 
 Filesystem reads are policy constrained by the node. Treat `/etc` and logs as potentially sensitive. Do not read broad file contents unless the user asks for a specific file or the troubleshooting task clearly needs it. Prefer `fs-stat` or `fs-list` before `fs-read`.
 
@@ -99,6 +111,8 @@ ssh node-act service-restart --unit ollama.service --dry-run
 ssh node-act service-restart --unit ollama.service --execute
 ssh node-act package-install --name htop --dry-run
 ssh node-act package-install --name htop --execute
+ssh node-act package-upgrade --name htop --dry-run
+ssh node-act package-upgrade --all --dry-run
 ```
 
 For config changes, stage the content through stdin, preview the apply, then execute only after explicit user approval:
@@ -115,7 +129,8 @@ Rules for changes:
 - Do not use `--execute` until the user has approved that specific target and action.
 - When using `agentictl-ssh-tool.sh`, pass `--allow-execute` only after that approval.
 - Treat "not allowed" errors as policy boundaries, not as prompts to bypass the executor.
-- For `package-install`, report the package manager returned by dry-run. Supported installers are `apt`, `dnf`, `yum`, `zypper`, `apk`, and `pacman`.
+- For `package-install` and `package-upgrade`, report the package manager returned by dry-run. Supported package managers are `apt`, `dnf`, `yum`, `zypper`, `apk`, and `pacman`.
+- For `package-upgrade --all`, require explicit user approval and policy support via `ALLOW_PACKAGE_UPGRADE_ALL=true`.
 - Report the JSON result and any backup path from `config-apply`.
 
 ## Failure Handling
@@ -153,10 +168,10 @@ Do not invent production hostnames. Ask the user when the target host or alias i
 When asked to decide what software a node should have:
 
 - Read the saved node role with `bin/agentictl-nodes role-show`.
-- Collect current state with `package-list`, `kernel-modules`, `service-status`, and targeted config reads if needed.
-- Record package and kernel-module snapshots before recommending changes.
+- Collect current state with `package-list`, `package-upgrades`, `kernel-modules`, `service-status`, and targeted config reads if needed.
+- Record package, upgrade, and kernel-module snapshots before recommending changes.
 - Compare the role description, current packages, loaded modules, and user requirements.
-- Use the action alias only for allowlisted `package-install`, and always run `--dry-run` before asking for approval to execute.
+- Use the action alias only for allowlisted `package-install` or `package-upgrade`, and always run `--dry-run` before asking for approval to execute.
 
 ## Historical Readings
 
@@ -166,6 +181,7 @@ For any diagnostic result that may be useful later, store a reading snapshot:
 ssh prod-gpu-01-ro health | bin/agentictl-nodes record --node prod-gpu-01-ro --kind health --source "ssh prod-gpu-01-ro health"
 ssh prod-gpu-01-ro service-status --unit ollama.service | bin/agentictl-nodes record --node prod-gpu-01-ro --kind service-ollama --source "ssh prod-gpu-01-ro service-status --unit ollama.service"
 ssh prod-gpu-01-ro package-list --limit 5000 | bin/agentictl-nodes record --node prod-gpu-01-ro --kind packages --source "ssh prod-gpu-01-ro package-list --limit 5000"
+ssh prod-gpu-01-ro package-upgrades --limit 500 | bin/agentictl-nodes record --node prod-gpu-01-ro --kind package-upgrades --source "ssh prod-gpu-01-ro package-upgrades --limit 500"
 ssh prod-gpu-01-ro kernel-modules --limit 2000 | bin/agentictl-nodes record --node prod-gpu-01-ro --kind kernel-modules --source "ssh prod-gpu-01-ro kernel-modules --limit 2000"
 ```
 

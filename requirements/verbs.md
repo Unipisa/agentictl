@@ -98,7 +98,7 @@ Filesystem read verbs should have tests for:
 - Denial of a sensitive path under `DENY_READ_PATHS`.
 - Limit handling where practical.
 
-Inventory read verbs such as `package-list` and `kernel-modules` should have tests for:
+Inventory read verbs such as `package-list`, `package-upgrades`, and `kernel-modules` should have tests for:
 
 - Stable JSON output.
 - Limit handling.
@@ -112,8 +112,9 @@ Local helper verbs such as `role-set` and `role-show` should have tests for:
 
 When changing package-manager support:
 
-- Update both `package-list` and `package-install` when the platform has distinct inventory and install commands.
-- Keep package names constrained by the existing package-name validator and `ALLOW_PACKAGE_INSTALL`.
+- Update `package-list`, `package-upgrades`, `package-install`, and `package-upgrade` when the platform has distinct inventory and install commands.
+- Keep package names constrained by the existing package-name validator and the relevant policy variable: `ALLOW_PACKAGE_INSTALL` or `ALLOW_PACKAGE_UPGRADE`.
+- Require an explicit policy flag for full package upgrades.
 - Report the selected package manager in dry-run and execute JSON.
 - Add local tests for explicit manager selection and Docker SSH tests for the default manager in the test image.
 

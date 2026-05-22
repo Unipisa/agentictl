@@ -11,6 +11,7 @@ The installer must:
 - Install binaries under `/opt/agentictl/bin`.
 - Install policy under `/opt/agentictl/config/policy.env`.
 - Include `AGENTICTL_PACKAGE_MANAGER=auto` in newly generated policy files.
+- Include package-upgrade policy keys in newly generated policy files and append missing upgrade policy keys during updates without overwriting existing policy values.
 - Create state directories under `/opt/agentictl/state`.
 - Configure forced-command SSH keys.
 - Add a narrow sudoers entry for `/opt/agentictl/bin/agentictl-act *` only when an action public key is installed.
@@ -30,6 +31,8 @@ dist/agentictl-<version>.tar.gz
 The tarball must include source scripts, docs, requirements, tests, installer, and skill files.
 
 The OpenClaw-side helper `bin/agentictl-nodes`, bundled skill scripts under `skills/agentictl-ssh/scripts/`, and self-contained skill resources under `skills/agentictl-ssh/resources/` are included in the release tarball but are not installed on managed nodes by `install/install-node.sh`.
+
+The OpenClaw skill resources must include a node payload tarball, checksum manifest, and a copy of the node installer so updating the skill also provides the payload needed to upgrade managed nodes from the OpenClaw host.
 
 ## Backward Compatibility
 

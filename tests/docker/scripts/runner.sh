@@ -64,6 +64,9 @@ check_contains "$output" 'ActiveState=active'
 output="$(ssh_ro package-list --limit 20)"
 check_contains "$output" '"manager":"dpkg"'
 
+output="$(ssh_ro package-upgrades --limit 20)"
+check_contains "$output" '"manager":"apt"'
+
 output="$(ssh_ro kernel-modules --limit 20)"
 check_contains "$output" '"modules":['
 
@@ -98,6 +101,15 @@ check_fails ssh_ro package-install --name jq --dry-run
 output="$(ssh_act package-install --name jq --dry-run)"
 check_contains "$output" '"package":"jq"'
 check_contains "$output" '"manager":"apt"'
+
+output="$(ssh_act package-upgrade --name jq --dry-run)"
+check_contains "$output" '"action":"package-upgrade"'
+check_contains "$output" '"package":"jq"'
+
+output="$(ssh_act package-upgrade --all --dry-run)"
+check_contains "$output" '"target":"all"'
+
+check_fails ssh_act package-upgrade --name curl --dry-run
 
 output="$(printf 'runtime: docker\n' | ssh_act config-stage --name runtime.yaml --execute)"
 check_contains "$output" '"action":"config-stage"'
