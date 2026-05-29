@@ -32,18 +32,18 @@ Prefer the bundled scripts when this skill directory is available:
 skills/agentictl-ssh/scripts/agentictl-node-tool.sh list
 skills/agentictl-ssh/scripts/agentictl-node-tool.sh add --alias prod-gpu-01-ro --host prod-gpu-01-ro --user agentictl-ro --mode readonly --identity ~/.ssh/agentictl_ro
 skills/agentictl-ssh/scripts/agentictl-ssh-tool.sh --target prod-gpu-01-ro --record-kind health -- health
-skills/agentictl-ssh/scripts/agentictl-bootstrap-instructions.sh --host prod-gpu-01.example.net --admin-user admin --role "GPU inference node running Ollama"
-skills/agentictl-ssh/scripts/agentictl-node-upgrade.sh --host prod-gpu-01.example.net --admin-user admin --verify-ro prod-gpu-01-ro --verify-act prod-gpu-01-act
+bash skills/agentictl-ssh/scripts/agentictl-bootstrap-instructions.sh --host prod-gpu-01.example.net --admin-user admin --role "GPU inference node running Ollama"
+bash skills/agentictl-ssh/scripts/agentictl-node-upgrade.sh --host prod-gpu-01.example.net --admin-user admin --verify-ro prod-gpu-01-ro --verify-act prod-gpu-01-act
 ```
 
-Use `agentictl-node-tool.sh` for local inventory, role, and history operations. Use `agentictl-ssh-tool.sh` for SSH verbs because it validates tokens, can record successful readings, and refuses `--execute` unless `--allow-execute` is explicitly supplied. If the bundled scripts are unavailable, fall back to the raw `ssh` and `bin/agentictl-nodes` commands below.
+Use `agentictl-node-tool.sh` for local inventory, role, and history operations. Use `agentictl-ssh-tool.sh` for SSH verbs because it validates tokens, can record successful readings, and refuses `--execute` unless `--allow-execute` is explicitly supplied. Run bundled shell scripts with `bash` or through installed helpers in `$PATH`; do not invoke them with `sh`. If the bundled scripts are unavailable, fall back to the raw `ssh` and `bin/agentictl-nodes` commands below.
 
 This skill is user-invocable, so OpenClaw can expose it as `/agentictl_ssh`. Treat slash input as a request to use this workflow, not as raw shell text. Do not configure this skill for direct `exec` dispatch.
 
 If only the skill folder is installed, install its bundled local tools first:
 
 ```bash
-{baseDir}/resources/install/install-agentictl-skill-tools.sh --bin-dir "$HOME/.local/bin"
+bash {baseDir}/resources/install/install-agentictl-skill-tools.sh --bin-dir "$HOME/.local/bin"
 ```
 
 ## Adding A New Node
@@ -61,7 +61,7 @@ Use `--readonly-only` when the user wants diagnostics without actions. If the us
 When the user wants to update agentictl on a node, use the skill-vendored payload and print a plan first:
 
 ```bash
-skills/agentictl-ssh/scripts/agentictl-node-upgrade.sh --host HOST --admin-user ADMIN_USER --verify-ro NODE_RO --verify-act NODE_ACT
+bash skills/agentictl-ssh/scripts/agentictl-node-upgrade.sh --host HOST --admin-user ADMIN_USER --verify-ro NODE_RO --verify-act NODE_ACT
 ```
 
 Run it with `--execute` only after the user approves the specific node and admin account. This command copies the skill's tarball to the node, verifies its checksum, reruns the installer with `sudo`, and verifies the configured aliases. Do not use `agentictl-act` to upgrade the agentictl installation itself.

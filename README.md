@@ -88,12 +88,12 @@ The skill also includes wrappers under `skills/agentictl-ssh/scripts/` so an age
 The skill is user-invocable in OpenClaw, so it can appear as `/agentictl_ssh`. When installed as a standalone skill folder, run:
 
 ```bash
-skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh --bin-dir "$HOME/.local/bin"
+bash skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh --bin-dir "$HOME/.local/bin"
 ```
 
 For adding a node from chat, the skill can generate a minimal terminal bootstrap block with `agentictl-bootstrap-instructions.sh`.
 
-For upgrading an existing node after the skill is updated, the skill includes a checksum-manifested node payload and `agentictl-node-upgrade.sh`. The upgrade path uses an existing admin SSH account to copy the tarball, rerun the installer, and verify RO/ACT aliases; it does not use `agentictl-act` to upgrade itself.
+For upgrading an existing node after the skill is updated, the skill includes a checksum-manifested node payload and `agentictl-node-upgrade.sh`. Run skill scripts with `bash` or through the installed helper in `$PATH`, not with `sh`. The upgrade path uses an existing admin SSH account to copy the tarball, rerun the installer, and verify RO/ACT aliases; it does not use `agentictl-act` to upgrade itself.
 
 ## Documentation
 

@@ -367,7 +367,7 @@ The skill is user-invocable and can be exposed by OpenClaw as `/agentictl_ssh`. 
 If you install only the skill folder, install its bundled local helper tools:
 
 ```bash
-skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh --bin-dir "$HOME/.local/bin"
+bash skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh --bin-dir "$HOME/.local/bin"
 ```
 
 To add a node from chat, ask `/agentictl_ssh` to generate terminal bootstrap commands. The skill should use:
@@ -379,10 +379,10 @@ skills/agentictl-ssh/scripts/agentictl-bootstrap-instructions.sh --host prod-gpu
 To upgrade a node after updating the skill, use the skill-vendored tarball and checksum manifest:
 
 ```bash
-skills/agentictl-ssh/scripts/agentictl-node-upgrade.sh --host prod-gpu-01.example.net --admin-user admin --verify-ro prod-gpu-01-ro --verify-act prod-gpu-01-act
+bash skills/agentictl-ssh/scripts/agentictl-node-upgrade.sh --host prod-gpu-01.example.net --admin-user admin --verify-ro prod-gpu-01-ro --verify-act prod-gpu-01-act
 ```
 
-Review the printed plan first. Add `--execute` only after approval. This uses the admin SSH account to copy the tarball and rerun the installer; do not use `agentictl-act` to upgrade the agentictl installation itself.
+Review the printed plan first. Add `--execute` only after approval. Run these scripts with `bash` or through the installed helper in `$PATH`, not with `sh`. This uses the admin SSH account to copy the tarball and rerun the installer; do not use `agentictl-act` to upgrade the agentictl installation itself.
 
 Use `agentictl-ssh-tool.sh --allow-execute` only after explicit approval for the specific action.
 

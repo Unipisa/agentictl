@@ -125,7 +125,7 @@ skills/agentictl-ssh/scripts/agentictl-ssh-tool.sh --target prod-gpu-01-ro --rec
 The skill is `user-invocable`, so OpenClaw can expose `/agentictl_ssh`. If you install only the skill folder, install its local helper tools from bundled resources:
 
 ```bash
-skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh --bin-dir "$HOME/.local/bin"
+bash skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh --bin-dir "$HOME/.local/bin"
 ```
 
 For a new node, generate the simplest terminal bootstrap commands with:
@@ -137,10 +137,10 @@ skills/agentictl-ssh/scripts/agentictl-bootstrap-instructions.sh --host node.exa
 After updating the skill, upgrade an existing node with the skill-vendored payload:
 
 ```bash
-skills/agentictl-ssh/scripts/agentictl-node-upgrade.sh --host node.example.net --admin-user admin --verify-ro node-ro --verify-act node-act
+bash skills/agentictl-ssh/scripts/agentictl-node-upgrade.sh --host node.example.net --admin-user admin --verify-ro node-ro --verify-act node-act
 ```
 
-Add `--execute` only after reviewing the printed plan. The upgrade uses the admin SSH account and reruns the node installer; it does not use `agentictl-act` to update itself.
+Add `--execute` only after reviewing the printed plan. Run skill scripts with `bash` or through the installed helper in `$PATH`, not with `sh`. The upgrade uses the admin SSH account and reruns the node installer; it does not use `agentictl-act` to update itself.
 
 ## Package
 

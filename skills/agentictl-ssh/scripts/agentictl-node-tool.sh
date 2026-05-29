@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+if [ -z "${BASH_VERSION:-}" ]; then
+  if command -v bash >/dev/null 2>&1; then
+    exec bash "$0" "$@"
+  fi
+  printf '%s\n' "agentictl-node-tool.sh requires bash; run: bash $0 ..." >&2
+  exit 2
+fi
 set -euo pipefail
 IFS=$'\n\t'
 
