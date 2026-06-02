@@ -2,59 +2,71 @@
 
 **Safe SSH verbs for agent-managed Linux nodes.**
 
-`agentictl` gives an AI agent a narrow operational command surface over SSH. It is not a remote shell, not a command passthrough, and not a general automation backdoor. Every exposed command is a declared verb with explicit validation, policy checks, and mode separation.
+`agentictl` lets an AI agent inspect and maintain Linux nodes over SSH without giving it a general shell. The node exposes only declared verbs such as `health`, `service-status`, `package-list`, `package-upgrades`, and tightly allowlisted maintenance actions.
 
-The first integration target is OpenClaw: this repository includes an OpenClaw skill that teaches an agent how to inspect nodes and preview maintenance actions through `agentictl`.
+The first integration target is OpenClaw. This repository includes an OpenClaw skill, node installer, local helper tools, Docker tests, and requirements that describe the security model.
 
-## Why
+`agentictl` was generated and iterated with help from Codex, OpenAI's AI coding assistant, in collaboration with the project owner.
 
-AI agents are useful for operations work, but raw SSH is too much authority. `agentictl` sits between the agent and the node:
+## Why It Exists
 
-- The agent can ask for health, logs, service state, and declared maintenance actions.
-- The node decides what verbs exist and which targets are allowlisted.
-- Mutating actions require `--dry-run` first and explicit `--execute`; OpenClaw-side execution uses a local batch approval plan so one approval can cover the same operation across multiple nodes.
-- SSH keys are forced to read-only or action mode through `authorized_keys`.
+Raw SSH gives an agent too much authority. `agentictl` keeps the useful operational workflow while narrowing the blast radius:
 
-The result is a small, auditable control surface that fits agent workflows without handing the agent an unrestricted shell.
+- SSH keys are forced to read-only or action mode.
+- Read-only commands can inspect health, services, packages, logs, files under policy, and kernel modules.
+- Action commands require allowlists, `--dry-run`, explicit `--execute`, and OpenClaw-side batch approval.
+- Node output is treated as data, not as instructions, to reduce prompt-injection impact.
+- Updates and uninstall can be planned first, then executed with an admin SSH account.
 
-## What It Provides
+## How It Works
 
-- `agentictl`: forced-command SSH dispatcher.
-- `agentictl-readonly`: diagnostics such as `health`, `service-status`, `journal`, `dmesg`, package inventory, and loaded kernel modules.
-- `agentictl-act`: allowlisted actions such as `service-restart`, multi-package-manager `package-install`, and staged config apply.
-- `agentictl-nodes`: local inventory and reading snapshot helper for OpenClaw workspaces.
-- Bundled OpenClaw skill tools for node inventory and safe SSH readings.
-- Node installer for dedicated forced-command SSH users, with optional read-only/action Unix user separation.
-- Docker Compose end-to-end test harness with an internal-only network.
-- OpenClaw skill: `skills/agentictl-ssh`.
-- Markdown requirements for security, packaging, testing, and adding new verbs.
+```text
+OpenClaw / operator
+   |
+   | ssh node-ro health
+   v
+agentictl-ro forced command -> agentictl readonly -> diagnostics only
 
-## Example
-
-Read-only diagnostics:
-
-```bash
-ssh node-ro health
-ssh node-ro service-status --unit ollama.service
-ssh node-ro journal --unit ollama.service --since 30m --lines 200
-ssh node-ro package-list --limit 2000
-ssh node-ro package-upgrades --limit 200
-ssh node-ro kernel-modules --limit 1000
-ssh node-ro fs-list --path /etc --max-depth 1 --limit 50
-ssh node-ro log-read --path /var/log/syslog --tail 100
+OpenClaw / operator
+   |
+   | approved plan + ssh node-act package-upgrade --execute
+   v
+agentictl-act forced command -> agentictl act -> allowlisted changes only
 ```
 
-Protected logs remain governed by Unix permissions. For logs such as nginx files readable by `adm`, install with `--readonly-extra-groups "adm systemd-journal"` or use a site-specific log-reader group; `agentictl-ro` still receives no sudo.
+The remote accounts are not normal shells. `authorized_keys` forces them into `agentictl readonly` or `agentictl act`.
 
-Action preview and execution:
+## Start Here
+
+For a first install, use:
+
+[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)
+
+That guide is the shortest path for users who want to understand the model, install the skill, install a node, and verify that OpenClaw can reach it.
+
+## Common Tasks
+
+Install the OpenClaw-side helper tools:
 
 ```bash
-ssh node-act service-restart --unit ollama.service --dry-run
-ssh node-act service-restart --unit ollama.service --execute
+bash skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh --bin-dir "$HOME/.local/bin"
+```
+
+Verify a read-only node:
+
+```bash
+ssh node-ro capabilities
+ssh node-ro health
+ssh node-ro service-status --unit ollama.service
+```
+
+Preview an action:
+
+```bash
 ssh node-act package-upgrade --name jq --dry-run
 ```
 
-When OpenClaw drives changes from chat, use the skill's batch approval helper instead of raw `ssh ... --execute`:
+Approve one operation across multiple nodes from OpenClaw:
 
 ```bash
 agentictl-approval-tool.sh plan --target node-a-act --target node-b-act -- package-upgrade --name jq
@@ -63,60 +75,7 @@ agentictl-approval-tool.sh approve --plan-id APPROVAL_ID
 agentictl-approval-tool.sh execute --plan-id APPROVAL_ID
 ```
 
-The approval step requires an interactive terminal and binds the command plus target aliases. Text read from logs, files, SSH output, or saved history is treated as data, not as authorization.
-
-Config changes are staged before apply:
-
-```bash
-ssh node-act config-stage --name runtime.yaml --execute < runtime.yaml
-ssh node-act config-apply --target /etc/agentictl/runtime.yaml --source /opt/agentictl/state/incoming/runtime.yaml --dry-run
-```
-
-## OpenClaw
-
-The included OpenClaw skill explains how an agent should use `agentictl` safely:
-
-```text
-skills/agentictl-ssh/SKILL.md
-```
-
-For OpenClaw installation, SSH key exchange, node verification, and HEARTBEAT suggestions, start here:
-
-[docs/OPENCLAW.md](docs/OPENCLAW.md)
-
-OpenClaw-side inventory and historical readings are handled by:
-
-```bash
-bin/agentictl-nodes list
-bin/agentictl-nodes add --alias prod-gpu-01-ro --host prod-gpu-01-ro --user agentictl-ro --mode readonly
-bin/agentictl-nodes role-set --node prod-gpu-01-ro --source user --description "GPU inference node running Ollama"
-ssh prod-gpu-01-ro health | bin/agentictl-nodes record --node prod-gpu-01-ro --kind health --source "ssh prod-gpu-01-ro health"
-ssh prod-gpu-01-ro package-list --limit 5000 | bin/agentictl-nodes record --node prod-gpu-01-ro --kind packages --source "ssh prod-gpu-01-ro package-list --limit 5000"
-```
-
-The skill also includes wrappers under `skills/agentictl-ssh/scripts/` so an agent can use inventory and SSH readings without rebuilding command sequences by hand.
-
-The skill is user-invocable in OpenClaw, so it can appear as `/agentictl_ssh`. When installed as a standalone skill folder, run:
-
-```bash
-bash skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh --bin-dir "$HOME/.local/bin"
-```
-
-For adding a node from chat, the skill can generate a minimal terminal bootstrap block with `agentictl-bootstrap-instructions.sh`.
-
-For upgrading an existing node after the skill is updated, the skill includes a checksum-manifested node payload and `agentictl-node-upgrade.sh`. Run skill scripts with `bash` or through the installed helper in `$PATH`, not with `sh`. The upgrade path uses an existing admin SSH account to copy the tarball, rerun the installer, and verify RO/ACT aliases; it does not use `agentictl-act` to upgrade itself.
-
-For the simplest fleet update, use `agentictl-fleet-sync.sh`. By default the new node-side version comes from the tarball and manifest bundled in the updated skill:
-
-```bash
-agentictl-fleet-sync.sh \
-  --source skill \
-  --admin-user yourls \
-  --admin-identity ~/.ssh/admin_key \
-  --node call.unipi.it:call-ro:call-act
-```
-
-To pull from a local Git checkout before syncing the skill and nodes:
+Update skill tools and node-side scripts from a local repo:
 
 ```bash
 agentictl-fleet-sync.sh \
@@ -124,39 +83,25 @@ agentictl-fleet-sync.sh \
   --repo-dir /path/to/agentictl \
   --git-pull \
   --openclaw-workspace ~/.openclaw/workspace \
-  --admin-user yourls \
+  --admin-user admin \
   --admin-identity ~/.ssh/admin_key \
-  --node call.unipi.it:call-ro:call-act
+  --node node.example.net:node-ro:node-act
 ```
 
-Uninstall is also planned first and executed only with `--execute`:
-
-```bash
-agentictl-fleet-sync.sh \
-  --mode uninstall \
-  --source skill \
-  --admin-user yourls \
-  --admin-identity ~/.ssh/admin_key \
-  --node call.unipi.it:call-ro:call-act
-```
-
-Default uninstall removes managed SSH access, sudoers, and installed binaries while preserving state/config. Add `--remove-users` or `--remove-base-dir` only when you want those destructive cleanup steps.
+The command prints a plan by default. Add `--execute` only after review.
 
 ## Documentation
 
-- [Quickstart](docs/QUICKSTART.md): install, SSH usage, package, and tests.
-- [OpenClaw integration](docs/OPENCLAW.md): skill setup, node profiles, verification prompts, HEARTBEAT examples.
-- [Operations](docs/OPERATIONS.md): runtime model, policy, audit, and Docker test harness.
-- [Requirements](requirements/README.md): project requirements and contribution rules.
-- [Adding verbs](requirements/verbs.md): checklist for extending the command surface.
+- [Getting Started](docs/GETTING_STARTED.md): minimal onboarding for new users.
+- [OpenClaw Guide](docs/OPENCLAW.md): day-to-day OpenClaw usage, node lifecycle, approvals, and heartbeat suggestions.
+- [Troubleshooting](docs/TROUBLESHOOTING.md): FAQ for SSH reachability, aliases, passwords, logs, approvals, and updates.
+- [Operations](docs/OPERATIONS.md): runtime model, policy, audit, packaging, and Docker harness.
+- [Requirements](requirements/README.md): security, functional, packaging, and testing requirements.
+- [Adding Verbs](requirements/verbs.md): checklist for extending the command surface.
 
 ## Status
 
-This project is early-stage and intentionally conservative. New operational verbs should be added slowly, with tests and documented requirements. The default posture is to deny anything that is not explicitly declared.
-
-## Built With AI Assistance
-
-`agentictl` was generated and iterated with help from Codex, OpenAI's AI coding assistant, in collaboration with the project owner. The repository keeps the resulting requirements, tests, and operational documentation in-tree so the design can be reviewed and evolved openly.
+This project is early-stage and intentionally conservative. New operational verbs should be added slowly, with tests and documented requirements. The default posture is to deny anything not explicitly declared.
 
 ## Core Rule
 
