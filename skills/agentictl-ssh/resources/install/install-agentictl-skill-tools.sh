@@ -52,6 +52,7 @@ install -d -m 0755 "$BIN_DIR"
 SHARE_DIR="$(cd -- "$BIN_DIR/.." && pwd)/share/agentictl-ssh"
 install -d -m 0755 "$SHARE_DIR/resources/dist" "$SHARE_DIR/resources/node"
 install -m 0755 "$SKILL_DIR/resources/bin/agentictl-nodes" "$BIN_DIR/agentictl-nodes"
+install -m 0755 "$SKILL_DIR/scripts/agentictl-approval-tool.sh" "$BIN_DIR/agentictl-approval-tool.sh"
 install -m 0755 "$SKILL_DIR/scripts/agentictl-node-tool.sh" "$BIN_DIR/agentictl-node-tool.sh"
 install -m 0755 "$SKILL_DIR/scripts/agentictl-ssh-tool.sh" "$BIN_DIR/agentictl-ssh-tool.sh"
 install -m 0755 "$SKILL_DIR/scripts/agentictl-bootstrap-instructions.sh" "$BIN_DIR/agentictl-bootstrap-instructions.sh"
@@ -60,6 +61,6 @@ install -m 0644 "$SKILL_DIR/resources/dist/agentictl-0.1.0.tar.gz" "$SHARE_DIR/r
 install -m 0644 "$SKILL_DIR/resources/dist/agentictl-0.1.0.manifest" "$SHARE_DIR/resources/dist/agentictl-0.1.0.manifest"
 install -m 0755 "$SKILL_DIR/resources/node/install-node.sh" "$SHARE_DIR/resources/node/install-node.sh"
 
-printf '{"ok":true,"bin_dir":%s,"share_dir":%s,"installed":["agentictl-nodes","agentictl-node-tool.sh","agentictl-ssh-tool.sh","agentictl-bootstrap-instructions.sh","agentictl-node-upgrade.sh","resources/dist/agentictl-0.1.0.tar.gz","resources/node/install-node.sh"]}\n' \
+printf '{"ok":true,"bin_dir":%s,"share_dir":%s,"installed":["agentictl-nodes","agentictl-approval-tool.sh","agentictl-node-tool.sh","agentictl-ssh-tool.sh","agentictl-bootstrap-instructions.sh","agentictl-node-upgrade.sh","resources/dist/agentictl-0.1.0.tar.gz","resources/node/install-node.sh"]}\n' \
   "$(json_string "$BIN_DIR")" \
   "$(json_string "$SHARE_DIR")"

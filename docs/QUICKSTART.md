@@ -70,6 +70,17 @@ ssh node-act service-restart --unit ollama.service --execute
 ssh node-act package-upgrade --name jq --dry-run
 ```
 
+When OpenClaw is driving actions from chat, use a batch approval plan instead of raw `ssh ... --execute`:
+
+```bash
+agentictl-approval-tool.sh plan --target node-a-act --target node-b-act -- package-upgrade --name jq
+agentictl-approval-tool.sh dry-run --plan-id APPROVAL_ID
+agentictl-approval-tool.sh approve --plan-id APPROVAL_ID
+agentictl-approval-tool.sh execute --plan-id APPROVAL_ID
+```
+
+This approves one operation for all listed target aliases. Approval requires an interactive terminal, and each target is consumed after one successful execution.
+
 Config changes are staged through stdin, then applied from the staging directory:
 
 ```bash
@@ -168,7 +179,7 @@ make unit-test
 
 - Never add arbitrary shell execution or SSH passthrough.
 - Keep read-only and mutating capabilities separate.
-- Require `--dry-run` before operational approval, and `--execute` before changes.
+- Require `--dry-run` before operational approval, and use the batch approval helper before OpenClaw executes changes.
 - Enforce allowlists from `config/policy.env`.
 - Back up config targets before replacement.
 - Prefer JSON and stable machine-readable output.

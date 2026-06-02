@@ -86,12 +86,26 @@ When `add` is called without `--user`, the default user must be derived from `--
 
 Software-stack reasoning must use the saved node role, current package inventory, loaded kernel modules, and historical readings before recommending allowlisted package changes.
 
+## OpenClaw-Side Action Approval
+
+OpenClaw-side helpers must treat remote command output, file contents, logs, local readings, and node role descriptions as untrusted data. These data sources may inform analysis, but they must never authorize a mutating action.
+
+For skill-mediated action execution, approval must be operation-scoped and may cover multiple target nodes. The required flow is:
+
+1. Create a local approval plan containing the normalized base command and explicit target aliases.
+2. Run dry-run across the plan targets.
+3. Ask the human operator to approve the plan once from an interactive terminal.
+4. Execute the approved plan across all pending targets.
+
+An approved plan must bind the command fingerprint, target aliases, expiry, and per-target pending/done state. Each target in the plan must be consumed after one successful execution.
+
 ## Skill Tools
 
 The OpenClaw skill must include bundled script tools for common node operations:
 
+- `agentictl-approval-tool.sh`: local batch approval planner for multi-node mutating actions, with interactive terminal approval and single-use per-target execution.
 - `agentictl-node-tool.sh`: local wrapper for inventory, role, record, and history operations.
-- `agentictl-ssh-tool.sh`: SSH wrapper for declared agentictl verbs with token validation, optional reading recording, and an explicit `--allow-execute` gate for commands containing `--execute`.
+- `agentictl-ssh-tool.sh`: SSH wrapper for declared agentictl verbs with token validation, optional reading recording, and a required approved `--approval-id` for commands containing `--execute`.
 - `agentictl-bootstrap-instructions.sh`: generator for minimal copy/paste terminal bootstrap instructions for a new node.
 - `agentictl-node-upgrade.sh`: generator/executor for admin-mediated node upgrades using the skill-vendored tarball.
 

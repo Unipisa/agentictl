@@ -56,6 +56,13 @@ Mutating verbs must parse both flags:
 
 The implementation must return a preview for `--dry-run` and call `require_execute_flag` before changing state.
 
+When the verb is used through the OpenClaw skill, `--execute` must also go through the local batch approval workflow:
+
+- Create an approval plan for the normalized command and target aliases.
+- Dry-run the plan.
+- Require one interactive human approval for the whole plan.
+- Execute with the approved plan id and consume each target once.
+
 ## 6. Expose The Verb In Capabilities
 
 Update the `capabilities` output for the relevant mode so agents can discover the verb.
@@ -78,7 +85,7 @@ Update `skills/agentictl-ssh/SKILL.md` with:
 - When to use the verb.
 - Required arguments.
 - Whether it is read-only or mutating.
-- The dry-run and execute sequence for mutating verbs.
+- The dry-run, batch approval, and execute sequence for mutating verbs.
 
 ## 9. Add Docker SSH Tests
 

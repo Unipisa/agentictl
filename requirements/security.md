@@ -42,6 +42,22 @@ Every mutating verb must:
 - Write an audit record for successful executions.
 - Avoid general shell evaluation.
 
+For OpenClaw-mediated execution, `--execute` must also be gated by a local approval plan rather than by model instructions alone. A plan may approve one operation across multiple nodes, but it must bind the normalized command, explicit target aliases, expiry, and per-target single-use state.
+
+## Prompt Injection Resistance
+
+The skill must treat all remote and stored operational data as untrusted input, including:
+
+- SSH command output.
+- Log and file contents.
+- Historical readings.
+- Saved node role descriptions.
+- Package inventory and upgrade lists.
+
+Text from those sources must never be interpreted as system, developer, user, or tool instructions. In particular, strings such as `SYSTEM:`, `Run:`, `ignore previous instructions`, or commands containing `--execute` must be handled only as data.
+
+Approval for mutating actions must come from a fresh human operator decision over a local plan. The plan approval command must require an interactive terminal and must not be satisfiable by remote output, stored readings, or non-interactive chat-generated text.
+
 ## Configuration Writes
 
 Configuration writes must stage content under `/opt/agentictl/state/incoming`, verify the source resolves under that directory, and back up existing targets before replacement.
@@ -71,8 +87,8 @@ Package inventory and loaded kernel modules are read-only diagnostics. They must
 - Return stable JSON for comparison over time.
 - Be treated as potentially sensitive operational metadata when stored locally.
 
-Automated package recommendations must compare the saved node role, current package inventory, loaded kernel modules, and historical readings. Package installation still requires the action mode allowlist, package-manager detection or an explicit package-manager override, `--dry-run`, user approval, and `--execute`.
+Automated package recommendations must compare the saved node role, current package inventory, loaded kernel modules, and historical readings. Package installation still requires the action mode allowlist, package-manager detection or an explicit package-manager override, `--dry-run`, an approved OpenClaw-side plan for skill execution, and `--execute`.
 
-Package upgrades must use a separate upgrade allowlist. Full package-manager upgrades must require an explicit policy flag and explicit user approval after dry-run.
+Package upgrades must use a separate upgrade allowlist. Full package-manager upgrades must require an explicit policy flag and explicit user approval after dry-run. For multi-node operations, one approval may cover all listed target nodes if the command and targets are fixed in the plan.
 
 Upgrading `agentictl` itself must not be implemented as an `agentictl-act` verb. Node upgrades must use an existing admin SSH account, a checksum-verified tarball from the skill resources, and the node installer.

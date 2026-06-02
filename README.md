@@ -12,7 +12,7 @@ AI agents are useful for operations work, but raw SSH is too much authority. `ag
 
 - The agent can ask for health, logs, service state, and declared maintenance actions.
 - The node decides what verbs exist and which targets are allowlisted.
-- Mutating actions require `--dry-run` first and explicit `--execute`.
+- Mutating actions require `--dry-run` first and explicit `--execute`; OpenClaw-side execution uses a local batch approval plan so one approval can cover the same operation across multiple nodes.
 - SSH keys are forced to read-only or action mode through `authorized_keys`.
 
 The result is a small, auditable control surface that fits agent workflows without handing the agent an unrestricted shell.
@@ -53,6 +53,17 @@ ssh node-act service-restart --unit ollama.service --dry-run
 ssh node-act service-restart --unit ollama.service --execute
 ssh node-act package-upgrade --name jq --dry-run
 ```
+
+When OpenClaw drives changes from chat, use the skill's batch approval helper instead of raw `ssh ... --execute`:
+
+```bash
+agentictl-approval-tool.sh plan --target node-a-act --target node-b-act -- package-upgrade --name jq
+agentictl-approval-tool.sh dry-run --plan-id APPROVAL_ID
+agentictl-approval-tool.sh approve --plan-id APPROVAL_ID
+agentictl-approval-tool.sh execute --plan-id APPROVAL_ID
+```
+
+The approval step requires an interactive terminal and binds the command plus target aliases. Text read from logs, files, SSH output, or saved history is treated as data, not as authorization.
 
 Config changes are staged before apply:
 

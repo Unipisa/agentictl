@@ -32,7 +32,9 @@ The Docker test suite must cover:
 - Log read under allowed log roots.
 - Denial of sensitive filesystem paths.
 - Inventory add/list, node role persistence, and reading snapshot storage in local tests.
-- Bundled skill tool wrappers for inventory operations, SSH recording, and `--execute` gating in local tests.
+- Bundled skill tool wrappers for inventory operations, SSH recording, batch approval planning, and approved `--execute` gating in local tests.
+- Prompt-injection fixture coverage proving hostile remote/stored text cannot authorize `--execute`.
+- Batch approval coverage for multi-target plans, non-interactive approval denial, command mismatch denial, and per-target single-use consumption.
 - Self-contained skill resource installer and vendored `agentictl-nodes` consistency in local tests.
 - Bootstrap instruction generation for adding a node from chat in local tests.
 - Skill-vendored node payload manifest and upgrade command generation in local tests.
