@@ -106,6 +106,42 @@ For adding a node from chat, the skill can generate a minimal terminal bootstrap
 
 For upgrading an existing node after the skill is updated, the skill includes a checksum-manifested node payload and `agentictl-node-upgrade.sh`. Run skill scripts with `bash` or through the installed helper in `$PATH`, not with `sh`. The upgrade path uses an existing admin SSH account to copy the tarball, rerun the installer, and verify RO/ACT aliases; it does not use `agentictl-act` to upgrade itself.
 
+For the simplest fleet update, use `agentictl-fleet-sync.sh`. By default the new node-side version comes from the tarball and manifest bundled in the updated skill:
+
+```bash
+agentictl-fleet-sync.sh \
+  --source skill \
+  --admin-user yourls \
+  --admin-identity ~/.ssh/admin_key \
+  --node call.unipi.it:call-ro:call-act
+```
+
+To pull from a local Git checkout before syncing the skill and nodes:
+
+```bash
+agentictl-fleet-sync.sh \
+  --source repo \
+  --repo-dir /path/to/agentictl \
+  --git-pull \
+  --openclaw-workspace ~/.openclaw/workspace \
+  --admin-user yourls \
+  --admin-identity ~/.ssh/admin_key \
+  --node call.unipi.it:call-ro:call-act
+```
+
+Uninstall is also planned first and executed only with `--execute`:
+
+```bash
+agentictl-fleet-sync.sh \
+  --mode uninstall \
+  --source skill \
+  --admin-user yourls \
+  --admin-identity ~/.ssh/admin_key \
+  --node call.unipi.it:call-ro:call-act
+```
+
+Default uninstall removes managed SSH access, sudoers, and installed binaries while preserving state/config. Add `--remove-users` or `--remove-base-dir` only when you want those destructive cleanup steps.
+
 ## Documentation
 
 - [Quickstart](docs/QUICKSTART.md): install, SSH usage, package, and tests.

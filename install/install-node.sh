@@ -28,6 +28,9 @@ ALLOW_CONFIG_TARGETS="/etc/agentictl/runtime.yaml /etc/agentictl/models.yaml"
 ALLOW_READ_ROOTS="/var/log /etc"
 ALLOW_LOG_ROOTS="/var/log"
 DENY_READ_PATHS="/etc/shadow /etc/gshadow /etc/ssh /etc/ssl/private /etc/sudoers /etc/sudoers.d"
+UNINSTALL="false"
+REMOVE_USERS="false"
+REMOVE_BASE_DIR="false"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
@@ -36,8 +39,12 @@ usage() {
   cat <<'USAGE'
 Usage:
   sudo install/install-node.sh --readonly-public-key-file id_agentictl_ro.pub [options]
+  sudo install/install-node.sh --uninstall [options]
 
 Options:
+  --uninstall                       Remove managed SSH access, sudoers, and installed binaries.
+  --remove-users                    With --uninstall, delete dedicated runtime users.
+  --remove-base-dir                 With --uninstall, delete the full base directory, including state.
   --action-public-key-file PATH     Optional second key for mutating actions.
   --user NAME                       Dedicated system user or split-user prefix, default: agentictl.
   --split-users                     Use separate Unix users for readonly and action SSH.
@@ -68,6 +75,9 @@ need_cmd() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --uninstall) UNINSTALL="true"; shift ;;
+    --remove-users) REMOVE_USERS="true"; shift ;;
+    --remove-base-dir) REMOVE_BASE_DIR="true"; shift ;;
     --readonly-public-key-file) READONLY_PUBLIC_KEY_FILE="${2:-}"; shift 2 ;;
     --action-public-key-file) ACTION_PUBLIC_KEY_FILE="${2:-}"; shift 2 ;;
     --user) USER_NAME="${2:-}"; shift 2 ;;
@@ -91,9 +101,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ "$(id -u)" -eq 0 ]] || fail "run as root"
-[[ -n "$READONLY_PUBLIC_KEY_FILE" ]] || fail "--readonly-public-key-file is required"
-[[ -r "$READONLY_PUBLIC_KEY_FILE" ]] || fail "readonly public key file not readable"
-[[ -z "$ACTION_PUBLIC_KEY_FILE" || -r "$ACTION_PUBLIC_KEY_FILE" ]] || fail "action public key file not readable"
+if [[ "$UNINSTALL" != "true" ]]; then
+  [[ -n "$READONLY_PUBLIC_KEY_FILE" ]] || fail "--readonly-public-key-file is required"
+  [[ -r "$READONLY_PUBLIC_KEY_FILE" ]] || fail "readonly public key file not readable"
+  [[ -z "$ACTION_PUBLIC_KEY_FILE" || -r "$ACTION_PUBLIC_KEY_FILE" ]] || fail "action public key file not readable"
+fi
 [[ "$USER_NAME" =~ ^[a-z_][a-z0-9_-]*[$]?$ ]] || fail "unsafe user name"
 [[ "$USER_NAME" != "root" ]] || fail "--user root is not allowed"
 if [[ "$SPLIT_USERS" == "true" ]]; then
@@ -118,6 +130,9 @@ need_cmd useradd
 need_cmd usermod
 need_cmd getent
 need_cmd groupadd
+if [[ "$UNINSTALL" == "true" && "$REMOVE_USERS" == "true" ]]; then
+  need_cmd userdel
+fi
 
 ensure_user() {
   local user="$1"
@@ -134,6 +149,20 @@ user_home() {
 
 user_group() {
   id -gn "$1"
+}
+
+remove_key_for_user() {
+  local user="$1" mode="$2"
+  local home group auth_file auth_tmp
+  id "$user" >/dev/null 2>&1 || return 0
+  home="$(user_home "$user")"
+  group="$(user_group "$user")"
+  auth_file="$home/.ssh/authorized_keys"
+  [[ -f "$auth_file" ]] || return 0
+  auth_tmp="$(mktemp)"
+  grep -v "agentictl-managed-$mode" "$auth_file" > "$auth_tmp" || true
+  install -m 0600 -o "$user" -g "$group" "$auth_tmp" "$auth_file"
+  rm -f "$auth_tmp"
 }
 
 ensure_group() {
@@ -163,6 +192,35 @@ ensure_policy_line() {
   grep -Eq "^[[:space:]]*$name=" "$BASE_DIR/config/policy.env" && return 0
   printf '\n%s=%q\n' "$name" "$value" >> "$BASE_DIR/config/policy.env"
 }
+
+if [[ "$UNINSTALL" == "true" ]]; then
+  remove_key_for_user "$READONLY_USER_NAME" readonly
+  remove_key_for_user "$ACTION_USER_NAME" act
+  rm -f "$SUDOERS_FILE"
+  if [[ "$REMOVE_BASE_DIR" == "true" ]]; then
+    [[ "$BASE_DIR" = /* && "$BASE_DIR" != "/" && "$BASE_DIR" != "/opt" && "$BASE_DIR" != "/var" ]] || fail "refusing unsafe --base-dir removal: $BASE_DIR"
+    rm -rf -- "$BASE_DIR"
+  else
+    rm -f -- "$BASE_DIR/bin/agentictl" "$BASE_DIR/bin/agentictl-readonly" "$BASE_DIR/bin/agentictl-act"
+  fi
+  if [[ "$REMOVE_USERS" == "true" ]]; then
+    if [[ "$SPLIT_USERS" == "true" ]]; then
+      id "$ACTION_USER_NAME" >/dev/null 2>&1 && userdel "$ACTION_USER_NAME" || true
+      id "$READONLY_USER_NAME" >/dev/null 2>&1 && userdel "$READONLY_USER_NAME" || true
+    else
+      id "$USER_NAME" >/dev/null 2>&1 && userdel "$USER_NAME" || true
+    fi
+  fi
+  printf 'uninstalled agentictl\n'
+  printf '  readonly user: %s\n' "$READONLY_USER_NAME"
+  if [[ "$SPLIT_USERS" == "true" ]]; then
+    printf '  action user: %s\n' "$ACTION_USER_NAME"
+  fi
+  printf '  base: %s\n' "$BASE_DIR"
+  printf '  removed users: %s\n' "$REMOVE_USERS"
+  printf '  removed base dir: %s\n' "$REMOVE_BASE_DIR"
+  exit 0
+fi
 
 ensure_user "$READONLY_USER_NAME"
 if [[ -n "$ACTION_PUBLIC_KEY_FILE" ]]; then
@@ -250,20 +308,6 @@ install_key_for_user() {
     grep -v "agentictl-managed-$mode" "$auth_file" > "$auth_tmp" || true
   fi
   build_key_line "$mode" "$key_file" >> "$auth_tmp"
-  install -m 0600 -o "$user" -g "$group" "$auth_tmp" "$auth_file"
-  rm -f "$auth_tmp"
-}
-
-remove_key_for_user() {
-  local user="$1" mode="$2"
-  local home group auth_file auth_tmp
-  id "$user" >/dev/null 2>&1 || return 0
-  home="$(user_home "$user")"
-  group="$(user_group "$user")"
-  auth_file="$home/.ssh/authorized_keys"
-  [[ -f "$auth_file" ]] || return 0
-  auth_tmp="$(mktemp)"
-  grep -v "agentictl-managed-$mode" "$auth_file" > "$auth_tmp" || true
   install -m 0600 -o "$user" -g "$group" "$auth_tmp" "$auth_file"
   rm -f "$auth_tmp"
 }

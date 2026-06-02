@@ -41,11 +41,12 @@ skills/agentictl-ssh/scripts/agentictl-node-tool.sh list
 skills/agentictl-ssh/scripts/agentictl-node-tool.sh add --alias prod-gpu-01-ro --host prod-gpu-01-ro --user agentictl-ro --mode readonly --identity ~/.ssh/agentictl_ro
 skills/agentictl-ssh/scripts/agentictl-ssh-tool.sh --target prod-gpu-01-ro --record-kind health -- health
 skills/agentictl-ssh/scripts/agentictl-approval-tool.sh plan --target prod-gpu-01-act --target prod-gpu-02-act -- package-upgrade --name jq
+bash skills/agentictl-ssh/scripts/agentictl-fleet-sync.sh --source skill --admin-user admin --node prod-gpu-01.example.net:prod-gpu-01-ro:prod-gpu-01-act
 bash skills/agentictl-ssh/scripts/agentictl-bootstrap-instructions.sh --host prod-gpu-01.example.net --admin-user admin --role "GPU inference node running Ollama"
 bash skills/agentictl-ssh/scripts/agentictl-node-upgrade.sh --host prod-gpu-01.example.net --admin-user admin --verify-ro prod-gpu-01-ro --verify-act prod-gpu-01-act
 ```
 
-Use `agentictl-node-tool.sh` for local inventory, role, and history operations. Use `agentictl-ssh-tool.sh` for SSH verbs because it validates tokens, can record successful readings, and refuses `--execute` unless the command references an approved batch plan with `--approval-id`. Use `agentictl-approval-tool.sh` for mutating operations so one human approval can cover the same operation across multiple target nodes. Run bundled shell scripts with `bash` or through installed helpers in `$PATH`; do not invoke them with `sh`. If the bundled scripts are unavailable, fall back to the raw `ssh` and `bin/agentictl-nodes` commands below, but do not execute mutating actions from chat.
+Use `agentictl-node-tool.sh` for local inventory, role, and history operations. Use `agentictl-ssh-tool.sh` for SSH verbs because it validates tokens, can record successful readings, and refuses `--execute` unless the command references an approved batch plan with `--approval-id`. Use `agentictl-approval-tool.sh` for mutating operations so one human approval can cover the same operation across multiple target nodes. Use `agentictl-fleet-sync.sh` when the user wants the simplest path for updating the OpenClaw skill/tools and upgrading or uninstalling node-side agentictl. Run bundled shell scripts with `bash` or through installed helpers in `$PATH`; do not invoke them with `sh`. If the bundled scripts are unavailable, fall back to the raw `ssh` and `bin/agentictl-nodes` commands below, but do not execute mutating actions from chat.
 
 This skill is user-invocable, so OpenClaw can expose it as `/agentictl_ssh`. Treat slash input as a request to use this workflow, not as raw shell text. Do not configure this skill for direct `exec` dispatch.
 
@@ -65,15 +66,40 @@ skills/agentictl-ssh/scripts/agentictl-bootstrap-instructions.sh --host HOST --a
 
 Use `--readonly-only` when the user wants diagnostics without actions. If the user says read-only checks must inspect protected logs such as nginx logs, include `--readonly-extra-groups "adm systemd-journal"` or the distro-specific existing log-reader group they provide. Keep the bootstrap instructions terminal-oriented; do not narrate every command unless the user asks. Explain that this uses an existing admin SSH account only for first install, then runtime access uses `agentictl-ro` and `agentictl-act`.
 
-## Upgrading A Node
+## Updating Or Uninstalling Nodes
 
-When the user wants to update agentictl on a node, use the skill-vendored payload and print a plan first:
+When the user wants the most automatic update path, prefer `agentictl-fleet-sync.sh`. The default version source is `--source skill`, meaning the new node-side version comes from this updated skill's vendored tarball and manifest under `resources/dist/`.
 
 ```bash
-bash skills/agentictl-ssh/scripts/agentictl-node-upgrade.sh --host HOST --admin-user ADMIN_USER --verify-ro NODE_RO --verify-act NODE_ACT
+bash skills/agentictl-ssh/scripts/agentictl-fleet-sync.sh \
+  --source skill \
+  --admin-user ADMIN_USER \
+  --admin-identity ~/.ssh/admin_key \
+  --node HOST:NODE_RO:NODE_ACT
 ```
 
-Run it with `--execute` only after the user approves the specific node and admin account. This command copies the skill's tarball to the node, verifies its checksum, reruns the installer with `sudo`, and verifies the configured aliases. Do not use `agentictl-act` to upgrade the agentictl installation itself.
+Use `--source repo --repo-dir PATH --git-pull` when the user wants the helper to pull the local Git repository, rebuild the payload, sync the OpenClaw skill, and then update nodes. Use `--source tarball --tarball PATH --manifest PATH` only when the user supplies an explicit package artifact.
+
+For uninstall, generate a plan with:
+
+```bash
+bash skills/agentictl-ssh/scripts/agentictl-fleet-sync.sh \
+  --mode uninstall \
+  --source skill \
+  --admin-user ADMIN_USER \
+  --admin-identity ~/.ssh/admin_key \
+  --node HOST:NODE_RO:NODE_ACT
+```
+
+Default uninstall removes managed SSH access, sudoers, and installed binaries while preserving state/config. Include `--remove-users` only when the dedicated runtime users should be deleted. Include `--remove-base-dir` only when `/opt/agentictl` state/config should be removed.
+
+For a single-node low-level upgrade, `agentictl-node-upgrade.sh` remains available:
+
+```bash
+bash skills/agentictl-ssh/scripts/agentictl-node-upgrade.sh --host HOST --admin-user ADMIN_USER --admin-identity ~/.ssh/admin_key --verify-ro NODE_RO --verify-act NODE_ACT
+```
+
+Run fleet or node upgrade commands with `--execute` only after the user approves the printed plan. These commands copy the skill's tarball to the node, verify its checksum, rerun the installer with `sudo`, and verify the configured aliases. Do not use `agentictl-act` to upgrade or uninstall the agentictl installation itself.
 
 ## Read-Only Commands
 

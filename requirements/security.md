@@ -92,3 +92,5 @@ Automated package recommendations must compare the saved node role, current pack
 Package upgrades must use a separate upgrade allowlist. Full package-manager upgrades must require an explicit policy flag and explicit user approval after dry-run. For multi-node operations, one approval may cover all listed target nodes if the command and targets are fixed in the plan.
 
 Upgrading `agentictl` itself must not be implemented as an `agentictl-act` verb. Node upgrades must use an existing admin SSH account, a checksum-verified tarball from the skill resources, and the node installer.
+
+Uninstalling `agentictl` from a node must also use an existing admin SSH account. Default uninstall should remove managed SSH access and privileged entry points without deleting state/config. Destructive cleanup of runtime users or the base directory must require explicit flags.

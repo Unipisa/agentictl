@@ -395,13 +395,43 @@ To add a node from chat, ask `/agentictl_ssh` to generate terminal bootstrap com
 skills/agentictl-ssh/scripts/agentictl-bootstrap-instructions.sh --host prod-gpu-01.example.net --admin-user admin --role "GPU inference node running Ollama"
 ```
 
-To upgrade a node after updating the skill, use the skill-vendored tarball and checksum manifest:
+To upgrade a node after updating the skill, use the skill-vendored tarball and checksum manifest. The new version comes from the OpenClaw-side skill resources, not from the managed node:
 
 ```bash
 bash skills/agentictl-ssh/scripts/agentictl-node-upgrade.sh --host prod-gpu-01.example.net --admin-user admin --verify-ro prod-gpu-01-ro --verify-act prod-gpu-01-act
 ```
 
 Review the printed plan first. Add `--execute` only after approval. Run these scripts with `bash` or through the installed helper in `$PATH`, not with `sh`. This uses the admin SSH account to copy the tarball and rerun the installer; do not use `agentictl-act` to upgrade the agentictl installation itself.
+
+For the simplest update path across skill, local tools, and one or more nodes, use the fleet helper:
+
+```bash
+agentictl-fleet-sync.sh \
+  --source skill \
+  --openclaw-workspace ~/.openclaw/workspace \
+  --admin-user admin \
+  --admin-identity ~/.ssh/admin_key \
+  --node prod-gpu-01.example.net:prod-gpu-01-ro:prod-gpu-01-act
+```
+
+Source modes:
+
+- `--source skill`: use the payload already bundled in the installed or workspace skill.
+- `--source repo --repo-dir /path/to/agentictl --git-pull`: pull the local Git checkout, rebuild the payload, sync the skill, then update nodes.
+- `--source tarball --tarball PATH --manifest PATH`: use an explicit package artifact.
+
+Uninstall is also supported:
+
+```bash
+agentictl-fleet-sync.sh \
+  --mode uninstall \
+  --source skill \
+  --admin-user admin \
+  --admin-identity ~/.ssh/admin_key \
+  --node prod-gpu-01.example.net:prod-gpu-01-ro:prod-gpu-01-act
+```
+
+Default uninstall removes managed SSH access, sudoers, and installed binaries while preserving state/config. Add `--remove-users` only to delete dedicated runtime users, and `--remove-base-dir` only to remove `/opt/agentictl` state/config.
 
 Use `agentictl-approval-tool.sh` for OpenClaw-mediated actions. The older `agentictl-ssh-tool.sh --allow-execute` shortcut is not the safe approval gate for chat-driven execution.
 

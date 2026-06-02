@@ -160,6 +160,7 @@ pass_count=$((pass_count + 1))
 output="$(bash "$ROOT/skills/agentictl-ssh/resources/install/install-agentictl-skill-tools.sh" --bin-dir "$TMP_DIR/installed-bin")"
 check_contains "$output" '"ok":true'
 check_contains "$output" 'agentictl-approval-tool.sh'
+check_contains "$output" 'agentictl-fleet-sync.sh'
 check_contains "$output" 'agentictl-bootstrap-instructions.sh'
 check_contains "$output" 'agentictl-node-upgrade.sh'
 check_contains "$output" 'resources/dist/agentictl-0.1.0.tar.gz'
@@ -177,6 +178,7 @@ check_contains "$output" '--readonly-extra-groups'
 printf 'payload\n' > "$TMP_DIR/agentictl-0.1.0.tar.gz"
 printf 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeReadOnlyKeyForLocalTests agentictl-ro\n' > "$TMP_DIR/agentictl_ro.pub"
 printf 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeActionKeyForLocalTests agentictl-act\n' > "$TMP_DIR/agentictl_act.pub"
+printf 'fake-admin-private-key\n' > "$TMP_DIR/admin_identity"
 test_sha="$(sha256sum "$TMP_DIR/agentictl-0.1.0.tar.gz" | awk '{print $1}')"
 {
   printf 'VERSION=0.1.0\n'
@@ -189,11 +191,29 @@ check_contains "$output" '--readonly-extra-groups'
 check_contains "$output" '--allow-package-upgrade-all'
 check_contains "$output" 'package-upgrades --limit 100'
 
+output="$(bash "$SKILL_TOOL_DIR/agentictl-node-upgrade.sh" --host node.example.net --admin-user admin --admin-identity "$TMP_DIR/admin_identity" --tarball "$TMP_DIR/agentictl-0.1.0.tar.gz" --manifest "$TMP_DIR/agentictl-0.1.0.manifest" --readonly-public-key-file "$TMP_DIR/agentictl_ro.pub" --action-public-key-file "$TMP_DIR/agentictl_act.pub")"
+check_contains "$output" 'scp -i'
+check_contains "$output" 'ssh -i'
+
 output="$("$TMP_DIR/installed-bin/agentictl-node-upgrade.sh" --host node.example.net --admin-user admin --readonly-public-key-file "$TMP_DIR/agentictl_ro.pub" --action-public-key-file "$TMP_DIR/agentictl_act.pub")"
 check_contains "$output" 'AGENTICTL_REMOTE_UPGRADE'
 
 output="$("$TMP_DIR/installed-bin/agentictl-bootstrap-instructions.sh" --host node.example.net --admin-user admin --readonly-only)"
 check_contains "$output" '--readonly-public-key-file'
+
+output="$(bash "$SKILL_TOOL_DIR/agentictl-fleet-sync.sh" --source tarball --tarball "$TMP_DIR/agentictl-0.1.0.tar.gz" --manifest "$TMP_DIR/agentictl-0.1.0.manifest" --admin-user admin --admin-identity "$TMP_DIR/admin_identity" --node node.example.net:node-ro:node-act --readonly-public-key-file "$TMP_DIR/agentictl_ro.pub" --action-public-key-file "$TMP_DIR/agentictl_act.pub" --readonly-extra-groups "adm systemd-journal")"
+check_contains "$output" '# version source: tarball'
+check_contains "$output" 'AGENTICTL_REMOTE_UPGRADE'
+check_contains "$output" 'scp -i'
+
+output="$(bash "$SKILL_TOOL_DIR/agentictl-fleet-sync.sh" --mode uninstall --source tarball --tarball "$TMP_DIR/agentictl-0.1.0.tar.gz" --manifest "$TMP_DIR/agentictl-0.1.0.manifest" --admin-user admin --admin-identity "$TMP_DIR/admin_identity" --node node.example.net:node-ro:node-act --remove-users --remove-base-dir)"
+check_contains "$output" '# agentictl fleet uninstall plan'
+check_contains "$output" 'install/install-node.sh --uninstall --split-users --remove-users --remove-base-dir'
+check_contains "$output" 'AGENTICTL_REMOTE_UNINSTALL'
+
+output="$(bash "$SKILL_TOOL_DIR/agentictl-fleet-sync.sh" --mode uninstall --source tarball --tarball "$TMP_DIR/agentictl-0.1.0.tar.gz" --manifest "$TMP_DIR/agentictl-0.1.0.manifest" --admin-user admin --node node.example.net --openclaw-workspace "$TMP_DIR/openclaw" --remove-openclaw-skill)"
+check_contains "$output" "$TMP_DIR/openclaw/skills/agentictl-ssh"
+check_contains "$output" 'agentictl-fleet-sync.sh'
 
 output="$(printf 'GPU inference node with NVIDIA runtime and Ollama service\n' | "$ROOT/bin/agentictl-nodes" role-set --node node-ro --source test)"
 check_contains "$output" '"action":"role-set"'

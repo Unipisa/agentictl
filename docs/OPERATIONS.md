@@ -79,6 +79,31 @@ make package
 
 Copy `dist/agentictl-<version>.tar.gz` to a node, extract it, and run `install/install-node.sh` from the extracted directory.
 
+When operating from OpenClaw, the usual source of the node-side version is the tarball bundled inside the updated skill under `skills/agentictl-ssh/resources/dist/`. `agentictl-fleet-sync.sh --source skill` uses that artifact and its manifest. Use `--source repo --repo-dir PATH --git-pull` to pull and rebuild from a local Git checkout, or `--source tarball --tarball PATH --manifest PATH` for an explicit artifact.
+
+Fleet upgrade example:
+
+```bash
+agentictl-fleet-sync.sh \
+  --source skill \
+  --admin-user admin \
+  --admin-identity ~/.ssh/admin_key \
+  --node node.example.net:node-ro:node-act
+```
+
+Fleet uninstall example:
+
+```bash
+agentictl-fleet-sync.sh \
+  --mode uninstall \
+  --source skill \
+  --admin-user admin \
+  --admin-identity ~/.ssh/admin_key \
+  --node node.example.net:node-ro:node-act
+```
+
+Default uninstall removes managed SSH access, sudoers, and installed binaries. It preserves state/config unless `--remove-base-dir` is supplied, and it preserves runtime users unless `--remove-users` is supplied.
+
 ## Docker Test Harness
 
 Run the end-to-end SSH test harness:

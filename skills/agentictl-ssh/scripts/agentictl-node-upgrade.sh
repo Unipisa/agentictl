@@ -22,6 +22,7 @@ fi
 
 HOST=""
 ADMIN_USER="admin"
+ADMIN_IDENTITY=""
 VERSION="0.1.0"
 TARBALL="$SKILL_DIR/resources/dist/agentictl-0.1.0.tar.gz"
 MANIFEST="$SKILL_DIR/resources/dist/agentictl-0.1.0.manifest"
@@ -54,6 +55,7 @@ read-only/action aliases.
 Options:
   --host HOST
   --admin-user USER
+  --admin-identity PATH
   --tarball PATH
   --manifest PATH
   --readonly-public-key-file PATH
@@ -111,6 +113,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --host) HOST="${2:-}"; shift 2 ;;
     --admin-user) ADMIN_USER="${2:-}"; shift 2 ;;
+    --admin-identity) ADMIN_IDENTITY="${2:-}"; shift 2 ;;
     --tarball) TARBALL="${2:-}"; shift 2 ;;
     --manifest) MANIFEST="${2:-}"; shift 2 ;;
     --readonly-public-key-file) READONLY_PUBLIC_KEY_FILE="${2:-}"; shift 2 ;;
@@ -134,6 +137,7 @@ done
 
 [[ -n "$HOST" ]] || fail "--host is required"
 [[ -n "$ADMIN_USER" ]] || fail "--admin-user is required"
+[[ -z "$ADMIN_IDENTITY" || -r "$ADMIN_IDENTITY" ]] || fail "admin identity not readable: $ADMIN_IDENTITY"
 [[ -r "$TARBALL" ]] || fail "tarball not readable: $TARBALL"
 [[ -r "$READONLY_PUBLIC_KEY_FILE" ]] || fail "readonly public key not readable: $READONLY_PUBLIC_KEY_FILE"
 if [[ "$READONLY_ONLY" != "true" ]]; then
@@ -152,6 +156,29 @@ REMOTE_ACT_KEY="$REMOTE_DIR/agentictl_act.pub"
 LOCAL_SHA256="$(checksum_file "$TARBALL")"
 if expected="$(manifest_sha256 "$MANIFEST")"; then
   [[ "$expected" == "$LOCAL_SHA256" ]] || fail "tarball checksum does not match manifest"
+fi
+
+ssh_plan_prefix() {
+  if [[ -n "$ADMIN_IDENTITY" ]]; then
+    printf 'ssh -i %s' "$(sq "$ADMIN_IDENTITY")"
+  else
+    printf 'ssh'
+  fi
+}
+
+scp_plan_prefix() {
+  if [[ -n "$ADMIN_IDENTITY" ]]; then
+    printf 'scp -i %s' "$(sq "$ADMIN_IDENTITY")"
+  else
+    printf 'scp'
+  fi
+}
+
+SSH_ARGS=()
+SCP_ARGS=()
+if [[ -n "$ADMIN_IDENTITY" ]]; then
+  SSH_ARGS=(-i "$ADMIN_IDENTITY")
+  SCP_ARGS=(-i "$ADMIN_IDENTITY")
 fi
 
 print_remote_script() {
@@ -185,12 +212,12 @@ print_plan() {
 # Run from the OpenClaw host. It uses the admin SSH account only for upgrade.
 
 INTRO
-  printf 'scp %s %s\n' "$(sq "$TARBALL")" "$(sq "$ADMIN_USER@$HOST:$REMOTE_TARBALL")"
-  printf 'scp %s %s\n' "$(sq "$READONLY_PUBLIC_KEY_FILE")" "$(sq "$ADMIN_USER@$HOST:$REMOTE_RO_KEY")"
+  printf '%s %s %s\n' "$(scp_plan_prefix)" "$(sq "$TARBALL")" "$(sq "$ADMIN_USER@$HOST:$REMOTE_TARBALL")"
+  printf '%s %s %s\n' "$(scp_plan_prefix)" "$(sq "$READONLY_PUBLIC_KEY_FILE")" "$(sq "$ADMIN_USER@$HOST:$REMOTE_RO_KEY")"
   if [[ "$READONLY_ONLY" != "true" ]]; then
-    printf 'scp %s %s\n' "$(sq "$ACTION_PUBLIC_KEY_FILE")" "$(sq "$ADMIN_USER@$HOST:$REMOTE_ACT_KEY")"
+    printf '%s %s %s\n' "$(scp_plan_prefix)" "$(sq "$ACTION_PUBLIC_KEY_FILE")" "$(sq "$ADMIN_USER@$HOST:$REMOTE_ACT_KEY")"
   fi
-  printf "ssh %s 'bash -s' <<'AGENTICTL_REMOTE_UPGRADE'\n" "$(sq "$ADMIN_USER@$HOST")"
+  printf "%s %s 'bash -s' <<'AGENTICTL_REMOTE_UPGRADE'\n" "$(ssh_plan_prefix)" "$(sq "$ADMIN_USER@$HOST")"
   print_remote_script
   printf 'AGENTICTL_REMOTE_UPGRADE\n'
   if [[ -n "$VERIFY_RO" ]]; then
@@ -209,14 +236,14 @@ if [[ "$EXECUTE" != "true" ]]; then
   exit 0
 fi
 
-scp "$TARBALL" "$ADMIN_USER@$HOST:$REMOTE_TARBALL"
-scp "$READONLY_PUBLIC_KEY_FILE" "$ADMIN_USER@$HOST:$REMOTE_RO_KEY"
+scp "${SCP_ARGS[@]}" "$TARBALL" "$ADMIN_USER@$HOST:$REMOTE_TARBALL"
+scp "${SCP_ARGS[@]}" "$READONLY_PUBLIC_KEY_FILE" "$ADMIN_USER@$HOST:$REMOTE_RO_KEY"
 if [[ "$READONLY_ONLY" != "true" ]]; then
-  scp "$ACTION_PUBLIC_KEY_FILE" "$ADMIN_USER@$HOST:$REMOTE_ACT_KEY"
+  scp "${SCP_ARGS[@]}" "$ACTION_PUBLIC_KEY_FILE" "$ADMIN_USER@$HOST:$REMOTE_ACT_KEY"
 fi
 
 remote_script="$(print_remote_script)"
-ssh "$ADMIN_USER@$HOST" 'bash -s' <<< "$remote_script"
+ssh "${SSH_ARGS[@]}" "$ADMIN_USER@$HOST" 'bash -s' <<< "$remote_script"
 
 if [[ -n "$VERIFY_RO" ]]; then
   ssh "$VERIFY_RO" capabilities

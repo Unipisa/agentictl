@@ -153,6 +153,42 @@ bash skills/agentictl-ssh/scripts/agentictl-node-upgrade.sh --host node.example.
 
 Add `--execute` only after reviewing the printed plan. Run skill scripts with `bash` or through the installed helper in `$PATH`, not with `sh`. The upgrade uses the admin SSH account and reruns the node installer; it does not use `agentictl-act` to update itself.
 
+For the simplest OpenClaw-side update, use the fleet helper. The default `--source skill` takes the new node-side version from the tarball and manifest bundled in the updated skill:
+
+```bash
+agentictl-fleet-sync.sh \
+  --source skill \
+  --admin-user admin \
+  --admin-identity ~/.ssh/admin_key \
+  --node node.example.net:node-ro:node-act
+```
+
+To update from a local Git checkout, pull and rebuild before syncing the skill and nodes:
+
+```bash
+agentictl-fleet-sync.sh \
+  --source repo \
+  --repo-dir /path/to/agentictl \
+  --git-pull \
+  --openclaw-workspace ~/.openclaw/workspace \
+  --admin-user admin \
+  --admin-identity ~/.ssh/admin_key \
+  --node node.example.net:node-ro:node-act
+```
+
+To uninstall from a node:
+
+```bash
+agentictl-fleet-sync.sh \
+  --mode uninstall \
+  --source skill \
+  --admin-user admin \
+  --admin-identity ~/.ssh/admin_key \
+  --node node.example.net:node-ro:node-act
+```
+
+Default uninstall removes managed SSH keys, sudoers, and binaries but preserves `/opt/agentictl` state/config. Add `--remove-users` or `--remove-base-dir` only when that extra cleanup is intended.
+
 ## Package
 
 ```bash

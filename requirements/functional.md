@@ -108,6 +108,7 @@ The OpenClaw skill must include bundled script tools for common node operations:
 - `agentictl-ssh-tool.sh`: SSH wrapper for declared agentictl verbs with token validation, optional reading recording, and a required approved `--approval-id` for commands containing `--execute`.
 - `agentictl-bootstrap-instructions.sh`: generator for minimal copy/paste terminal bootstrap instructions for a new node.
 - `agentictl-node-upgrade.sh`: generator/executor for admin-mediated node upgrades using the skill-vendored tarball.
+- `agentictl-fleet-sync.sh`: generator/executor for updating the OpenClaw-side skill/tools and upgrading or uninstalling multiple node-side installations from one admin SSH credential set.
 
 The skill must be `user-invocable: true` so OpenClaw can expose it as `/agentictl_ssh`. Slash invocation must remain model-mediated unless a dedicated typed OpenClaw tool is implemented; it must not dispatch raw user input directly to `exec`.
 
@@ -124,3 +125,11 @@ The skill instructions should prefer these tools when available and document raw
 When the user asks to add or install a node, the skill should first produce concise terminal commands, asking only for missing host, admin user, and role. Bootstrap instructions must use the admin account only for initial installation and then switch to `agentictl-ro`/`agentictl-act` runtime aliases.
 
 When the user asks to upgrade a node, the skill should prefer the vendored tarball and `agentictl-node-upgrade.sh`. Upgrade execution must use an existing admin SSH account, verify the tarball checksum, rerun the node installer, and then verify read-only and action aliases. Do not use `agentictl-act` to replace or upgrade the agentictl installation itself.
+
+For fleet operations, the default version source must be the checksum-manifested payload bundled in the updated skill. Supported source modes should include:
+
+- `skill`: use the payload already present in the skill resources.
+- `repo`: use a local repository path, optionally run `git pull --ff-only`, rebuild the tarball, then sync the skill.
+- `tarball`: use explicit local tarball and manifest paths.
+
+Uninstall must be supported separately from upgrade. Node uninstall must remove managed authorized-key lines, sudoers, and installed binaries by default, while requiring explicit flags to delete runtime users or the base directory containing state/config.

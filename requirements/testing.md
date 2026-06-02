@@ -38,6 +38,7 @@ The Docker test suite must cover:
 - Self-contained skill resource installer and vendored `agentictl-nodes` consistency in local tests.
 - Bootstrap instruction generation for adding a node from chat in local tests.
 - Skill-vendored node payload manifest and upgrade command generation in local tests.
+- Fleet sync plan generation for upgrade and uninstall, including explicit version source, admin identity use, and conservative uninstall flags.
 
 ## Local Unit Test
 
