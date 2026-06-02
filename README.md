@@ -20,19 +20,7 @@ Raw SSH gives an agent too much authority. `agentictl` keeps the useful operatio
 
 ## How It Works
 
-```text
-OpenClaw / operator
-   |
-   | ssh node-ro health
-   v
-agentictl-ro forced command -> agentictl readonly -> diagnostics only
-
-OpenClaw / operator
-   |
-   | approved plan + ssh node-act package-upgrade --execute
-   v
-agentictl-act forced command -> agentictl act -> allowlisted changes only
-```
+![OpenClaw and agentictl node relationship diagram](docs/assets/agentictl-openclaw-nodes-diagram.png)
 
 The remote accounts are not normal shells. `authorized_keys` forces them into `agentictl readonly` or `agentictl act`.
 
