@@ -115,9 +115,12 @@ check_contains "$output" '"target_exists":false'
 
 output="$("$ROOT/bin/agentictl" act capabilities)"
 check_contains "$output" '"mode":"act"'
+check_contains "$output" '"modules":['
+check_contains "$output" '"id":"linux.packages"'
 
 output="$("$ROOT/bin/agentictl" readonly capabilities)"
 check_contains "$output" 'package-list'
+check_contains "$output" '"id":"linux.files"'
 
 output="$("$ROOT/bin/agentictl" readonly fs-list --path "$TMP_DIR/readroot/etc" --max-depth 1 --limit 20)"
 check_contains "$output" '"entries":['

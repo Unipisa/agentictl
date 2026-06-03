@@ -6,7 +6,7 @@ Documents:
 
 - `functional.md`: supported modes, verbs, outputs, and policy behavior.
 - `security.md`: confinement and threat-model requirements.
-- `verbs.md`: how to add new verbs to `agentictl`.
+- `verbs.md`: how to add new module-backed verbs to `agentictl`.
 - `packaging.md`: installer and release package requirements.
 - `testing.md`: local and Docker test requirements.
 - `github.md`: repository-readiness requirements for publishing.

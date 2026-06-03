@@ -14,6 +14,40 @@ command="/opt/agentictl/bin/agentictl readonly",no-pty,no-agent-forwarding,no-X1
 command="/opt/agentictl/bin/agentictl act",no-pty,no-agent-forwarding,no-X11-forwarding,no-port-forwarding ...
 ```
 
+## Modular Runtime
+
+`agentictl` must be structured as a small security core plus installed verb modules.
+
+The core is responsible for:
+
+- SSH original-command parsing.
+- Token validation.
+- Mode selection.
+- Module discovery.
+- Capability generation.
+- Dispatch to declared module handlers.
+- Shared policy, audit, JSON, and validator helpers.
+
+Modules live under `/opt/agentictl/modules` on managed nodes and under `modules/` in the source tree. Each module must include a `module.env` manifest with:
+
+- `AGENTICTL_MODULE_ID`
+- `AGENTICTL_MODULE_LABEL`
+- `AGENTICTL_MODULE_READONLY_VERBS`
+- `AGENTICTL_MODULE_ACT_VERBS`
+
+The manifest declares the available verbs. It does not override policy and does not authorize execution by itself.
+
+Installed built-in modules:
+
+- `linux.core`: health diagnostics.
+- `linux.systemd`: service status, journal, and allowlisted service restart.
+- `linux.packages`: package inventory, available upgrades, install, and upgrade providers.
+- `linux.kernel`: dmesg and loaded kernel modules.
+- `linux.files`: policy-constrained file and log reads.
+- `linux.config`: allowlisted configuration staging and apply.
+
+`capabilities` must include both the flat command list and module metadata so agents can discover the node surface without guessing.
+
 ## Current Verbs
 
 Read-only verbs:

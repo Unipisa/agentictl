@@ -126,6 +126,7 @@ fi
 
 need_cmd install
 need_cmd mkdir
+need_cmd find
 need_cmd useradd
 need_cmd usermod
 need_cmd getent
@@ -202,6 +203,15 @@ if [[ "$UNINSTALL" == "true" ]]; then
     rm -rf -- "$BASE_DIR"
   else
     rm -f -- "$BASE_DIR/bin/agentictl" "$BASE_DIR/bin/agentictl-readonly" "$BASE_DIR/bin/agentictl-act"
+    rm -rf -- "$BASE_DIR/lib/agentictl"
+    rm -rf -- \
+      "$BASE_DIR/modules/linux-config" \
+      "$BASE_DIR/modules/linux-core" \
+      "$BASE_DIR/modules/linux-files" \
+      "$BASE_DIR/modules/linux-kernel" \
+      "$BASE_DIR/modules/linux-packages" \
+      "$BASE_DIR/modules/linux-systemd"
+    rmdir "$BASE_DIR/lib" "$BASE_DIR/modules" 2>/dev/null || true
   fi
   if [[ "$REMOVE_USERS" == "true" ]]; then
     if [[ "$SPLIT_USERS" == "true" ]]; then
@@ -245,7 +255,7 @@ if [[ -n "$ACTION_PUBLIC_KEY_FILE" ]]; then
 fi
 STATE_GROUP="$(user_group "$STATE_OWNER")"
 
-install -d -m 0755 -o root -g root "$BASE_DIR" "$BASE_DIR/bin" "$BASE_DIR/config"
+install -d -m 0755 -o root -g root "$BASE_DIR" "$BASE_DIR/bin" "$BASE_DIR/config" "$BASE_DIR/lib" "$BASE_DIR/lib/agentictl" "$BASE_DIR/modules"
 install -d -m 0750 -o root -g "$SHARED_GROUP_NAME" "$BASE_DIR/state"
 install -d -m 0750 -o "$STATE_OWNER" -g "$STATE_GROUP" "$BASE_DIR/state/backups" "$BASE_DIR/state/incoming"
 if [[ -e "$BASE_DIR/state/audit.log" ]]; then
@@ -257,6 +267,17 @@ fi
 install -m 0755 -o root -g root "$REPO_DIR/bin/agentictl" "$BASE_DIR/bin/agentictl"
 install -m 0755 -o root -g root "$REPO_DIR/bin/agentictl-readonly" "$BASE_DIR/bin/agentictl-readonly"
 install -m 0755 -o root -g root "$REPO_DIR/bin/agentictl-act" "$BASE_DIR/bin/agentictl-act"
+install -m 0644 -o root -g root "$REPO_DIR/lib/agentictl/core.sh" "$BASE_DIR/lib/agentictl/core.sh"
+
+while IFS= read -r -d '' module_dir; do
+  rel_dir="${module_dir#"$REPO_DIR/modules/"}"
+  install -d -m 0755 -o root -g root "$BASE_DIR/modules/$rel_dir"
+done < <(find "$REPO_DIR/modules" -type d -print0)
+
+while IFS= read -r -d '' module_file; do
+  rel_file="${module_file#"$REPO_DIR/modules/"}"
+  install -m 0644 -o root -g root "$module_file" "$BASE_DIR/modules/$rel_file"
+done < <(find "$REPO_DIR/modules" -type f -print0)
 
 if [[ ! -e "$BASE_DIR/config/policy.env" ]]; then
   tmp_policy="$(mktemp)"

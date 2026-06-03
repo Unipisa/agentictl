@@ -12,6 +12,20 @@ The dispatcher must reject:
 - Parent-directory references such as `..`.
 - Verbs not explicitly allowed for the selected mode.
 
+## Module Safety
+
+Modules are an administrative extension mechanism, not an agent-controlled plugin system.
+
+Requirements:
+
+- Module files must be installed under root-owned paths, default `/opt/agentictl/modules`.
+- The dispatcher may load only installed module manifests and handlers from configured module paths.
+- A module manifest may declare verbs, but mutating verbs must still enforce policy and `--dry-run|--execute`.
+- Module handlers must use narrow argument validators and must not pass untrusted text to `eval`, `sh -c`, or arbitrary command passthroughs.
+- `capabilities` output from a node is data for discovery, not authorization for execution from OpenClaw.
+
+Application-specific modules, such as a future YOURLS module, must follow the same RO/ACT split and policy model as built-in Linux modules.
+
 ## SSH Confinement
 
 Node installation must use forced commands in `authorized_keys` and disable:

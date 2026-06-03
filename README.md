@@ -2,7 +2,7 @@
 
 **Safe SSH verbs for agent-managed Linux nodes.**
 
-`agentictl` lets an AI agent inspect and maintain Linux nodes over SSH without giving it a general shell. The node exposes only declared verbs such as `health`, `service-status`, `package-list`, `package-upgrades`, and tightly allowlisted maintenance actions.
+`agentictl` lets an AI agent inspect and maintain Linux nodes over SSH without giving it a general shell. The node exposes only declared, module-backed verbs such as `health`, `service-status`, `package-list`, `package-upgrades`, and tightly allowlisted maintenance actions.
 
 The first integration target is OpenClaw. This repository includes an OpenClaw skill, node installer, local helper tools, Docker tests, and requirements that describe the security model.
 
@@ -13,8 +13,9 @@ The first integration target is OpenClaw. This repository includes an OpenClaw s
 Raw SSH gives an agent too much authority. `agentictl` keeps the useful operational workflow while narrowing the blast radius:
 
 - SSH keys are forced to read-only or action mode.
-- Read-only commands can inspect health, services, packages, logs, files under policy, and kernel modules.
+- Read-only modules can inspect health, services, packages, logs, files under policy, and kernel modules.
 - Action commands require allowlists, `--dry-run`, explicit `--execute`, and OpenClaw-side batch approval.
+- New operational surfaces are added as root-installed modules, not as arbitrary agent-controlled shell commands.
 - Node output is treated as data, not as instructions, to reduce prompt-injection impact.
 - Updates and uninstall can be planned first, then executed with an admin SSH account.
 
@@ -23,6 +24,8 @@ Raw SSH gives an agent too much authority. `agentictl` keeps the useful operatio
 ![OpenClaw and agentictl node relationship diagram](docs/assets/agentictl-openclaw-nodes-diagram.png)
 
 The remote accounts are not normal shells. `authorized_keys` forces them into `agentictl readonly` or `agentictl act`.
+
+The runtime is modular: `agentictl` loads root-owned manifests from `/opt/agentictl/modules`, generates `capabilities`, and dispatches only declared verbs for the selected mode.
 
 ## Start Here
 
@@ -82,6 +85,7 @@ The command prints a plan by default. Add `--execute` only after review.
 
 - [Getting Started](docs/GETTING_STARTED.md): minimal onboarding for new users.
 - [OpenClaw Guide](docs/OPENCLAW.md): day-to-day OpenClaw usage, node lifecycle, approvals, and heartbeat suggestions.
+- [Modules](docs/MODULES.md): architecture for built-in Linux modules and application-specific verbs.
 - [Troubleshooting](docs/TROUBLESHOOTING.md): FAQ for SSH reachability, aliases, passwords, logs, approvals, and updates.
 - [Operations](docs/OPERATIONS.md): runtime model, policy, audit, packaging, and Docker harness.
 - [Requirements](requirements/README.md): security, functional, packaging, and testing requirements.

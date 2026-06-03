@@ -16,6 +16,7 @@ mkdir -p "$DIST_DIR" "$SKILL_DIST_DIR" "$SKILL_NODE_DIR"
 tar -C "$REPO_DIR" \
   --exclude './dist' \
   --exclude './.git' \
+  --exclude './skills/*.tar' \
   --exclude './skills/agentictl-ssh/resources/dist' \
   --transform "s#^.#$NAME#" \
   -czf "$NODE_PAYLOAD" \
@@ -42,6 +43,7 @@ fi
 tar -C "$REPO_DIR" \
   --exclude './dist' \
   --exclude './.git' \
+  --exclude './skills/*.tar' \
   --transform "s#^.#$NAME#" \
   -czf "$ARCHIVE" \
   .

@@ -7,7 +7,19 @@ The managed node exposes dedicated SSH users. In the recommended split-user layo
 - `agentictl readonly` for diagnostics.
 - `agentictl act` for allowlisted changes.
 
-`agentictl` reads `SSH_ORIGINAL_COMMAND`, accepts only simple command tokens, rejects shell metacharacters, and dispatches to the mode-specific executor. It never invokes a general shell.
+`agentictl` reads `SSH_ORIGINAL_COMMAND`, accepts only simple command tokens, rejects shell metacharacters, loads root-owned module manifests, and dispatches only verbs declared for the selected mode. It never invokes a general shell.
+
+The node-side layout is modular:
+
+```text
+/opt/agentictl/bin/agentictl
+/opt/agentictl/bin/agentictl-readonly
+/opt/agentictl/bin/agentictl-act
+/opt/agentictl/lib/agentictl/core.sh
+/opt/agentictl/modules/
+```
+
+Built-in modules cover Linux health, systemd, packages, kernel diagnostics, policy-constrained file/log reads, and config staging. Application-specific modules can be added later by an administrator, for example a YOURLS module for classic filesystem installs or containerized installs. See `docs/MODULES.md`.
 
 ## Node Install
 
@@ -157,6 +169,8 @@ ssh node-ro kernel-modules --limit 2000
 Save the intended node role locally with `bin/agentictl-nodes role-set`, then record package and module snapshots with `bin/agentictl-nodes record`. Package changes still go through `ssh node-act package-install --name PACKAGE --dry-run` or `ssh node-act package-upgrade --name PACKAGE --dry-run`. When OpenClaw executes changes, use `agentictl-approval-tool.sh` to approve one normalized operation across all intended action aliases, then execute the approved plan. Full upgrades require `ALLOW_PACKAGE_UPGRADE_ALL=true` and should be reviewed separately from single-package changes.
 
 `package-list` reads installed packages from `dpkg-query`, `rpm`, `apk`, or `pacman` when available. `package-install` supports `apt-get`, `dnf`, `yum`, `zypper`, `apk`, and `pacman`; dry-run and execute output include the selected manager. Auto-detection is normally enough, but a node policy can set `AGENTICTL_PACKAGE_MANAGER` or `OPENCLAW_PACKAGE_MANAGER` to one of `apt`, `dnf`, `yum`, `zypper`, `apk`, or `pacman`.
+
+Package handling is implemented as the built-in `linux.packages` module. This is the model for future provider-style modules: keep the SSH verb stable and move platform-specific implementation behind a module/provider boundary.
 
 Example multi-node approval:
 

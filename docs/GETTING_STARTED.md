@@ -12,6 +12,8 @@ This guide is for someone seeing `agentictl` for the first time. It explains the
 
 The managed node never gives the agent a normal shell. SSH is forced into `agentictl readonly` or `agentictl act`.
 
+The command surface is modular. Built-in Linux modules provide health, systemd, packages, kernel, file/log, and config verbs; future application modules can add explicit verbs without exposing a shell.
+
 ## Minimum Requirements
 
 On the OpenClaw host:
@@ -155,6 +157,8 @@ ssh node-ro capabilities
 ssh node-ro health
 ssh node-ro service-status --unit ollama.service
 ```
+
+`capabilities` shows both available verbs and the modules that provide them.
 
 For action-enabled nodes:
 

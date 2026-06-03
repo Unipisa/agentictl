@@ -2,43 +2,17 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-BASE_DIR="${AGENTICTL_BASE_DIR:-${OPENCLAW_BASE_DIR:-/opt/agentictl}}"
-AUDIT_LOG="${AGENTICTL_AUDIT_LOG:-${OPENCLAW_AUDIT_LOG:-$BASE_DIR/state/audit.log}}"
-MAX_ORIGINAL_COMMAND_BYTES="${AGENTICTL_MAX_ORIGINAL_COMMAND_BYTES:-${OPENCLAW_MAX_ORIGINAL_COMMAND_BYTES:-4096}}"
-TOKEN_REGEX='^[A-Za-z0-9_./@:+,=-]+$'
-
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+AGENTICTL_SCRIPT_DIR="$SCRIPT_DIR"
+CORE_FILE="${AGENTICTL_CORE_FILE:-$SCRIPT_DIR/../lib/agentictl/core.sh}"
 
-json_string() {
-  local value="${1-}"
-  value="${value//\\/\\\\}"
-  value="${value//\"/\\\"}"
-  value="${value//$'\n'/\\n}"
-  value="${value//$'\r'/\\r}"
-  value="${value//$'\t'/\\t}"
-  printf '"%s"' "$value"
-}
+if [[ ! -r "$CORE_FILE" ]]; then
+  printf '{"ok":false,"error":"agentictl core not found"}\n'
+  exit 70
+fi
 
-fail() {
-  local code="$1"; shift
-  audit "deny" "${1-}" "$code" || true
-  printf '{"ok":false,"error":%s}\n' "$(json_string "$*")"
-  exit "$code"
-}
-
-audit() {
-  local event="${1:-unknown}" detail="${2:-}" result="${3:-}"
-  local audit_dir
-  audit_dir="$(dirname "$AUDIT_LOG")"
-  mkdir -p "$audit_dir" 2>/dev/null || return 0
-  [[ -e "$AUDIT_LOG" && -w "$AUDIT_LOG" ]] || [[ ! -e "$AUDIT_LOG" && -w "$audit_dir" ]] || return 0
-  printf '{"ts":%s,"actor":%s,"event":%s,"detail":%s,"result":%s}\n' \
-    "$(json_string "$(date --iso-8601=seconds 2>/dev/null || date)")" \
-    "$(json_string "${USER:-unknown}")" \
-    "$(json_string "$event")" \
-    "$(json_string "$detail")" \
-    "$(json_string "$result")" >> "$AUDIT_LOG" 2>/dev/null || true
-}
+# shellcheck source=../lib/agentictl/core.sh
+source "$CORE_FILE"
 
 usage() {
   cat <<'USAGE'
@@ -72,17 +46,12 @@ for token in "${argv[@]}"; do
 done
 
 command_name="${argv[0]}"
+agentictl_load_modules
 
-case "$mode:$command_name" in
-  readonly:capabilities|readonly:health|readonly:journal|readonly:dmesg|readonly:service-status|readonly:package-list|readonly:package-upgrades|readonly:kernel-modules|readonly:fs-list|readonly:fs-stat|readonly:fs-read|readonly:log-read)
-    audit "allow" "$mode:$command_name" "dispatch"
-    exec "$SCRIPT_DIR/agentictl-readonly" "${argv[@]}"
-    ;;
-  act:capabilities|act:service-restart|act:package-install|act:package-upgrade|act:config-stage|act:config-apply)
-    audit "allow" "$mode:$command_name" "dispatch"
-    exec "$SCRIPT_DIR/agentictl-act" "${argv[@]}"
-    ;;
-  *)
-    fail 64 "command not allowed in $mode mode: $command_name"
-    ;;
-esac
+if agentictl_mode_has_verb "$mode" "$command_name"; then
+  audit_event "allow" "$mode:$command_name" "dispatch"
+  exec "$SCRIPT_DIR/agentictl-$mode" "${argv[@]}"
+fi
+
+audit_event "deny" "$mode:$command_name" "64"
+fail 64 "command not allowed in $mode mode: $command_name"

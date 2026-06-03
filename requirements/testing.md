@@ -17,6 +17,7 @@ The Docker test suite must cover:
 - Split-user installation keeps the audit log writable through the shared audit group while keeping staging owned by the action user.
 - Split-user installation can add the read-only user to an explicit existing log-reader group and read a protected log without granting read-only sudo.
 - Forced-command SSH for read-only mode.
+- `capabilities` exposes module metadata in addition to the flat command list.
 - Package inventory and kernel module inventory in read-only mode.
 - Package upgrade inventory in read-only mode.
 - Forced-command SSH for action mode.

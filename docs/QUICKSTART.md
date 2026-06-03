@@ -17,5 +17,6 @@ The short version:
 Useful follow-up docs:
 
 - [OpenClaw Guide](OPENCLAW.md)
+- [Modules](MODULES.md)
 - [Troubleshooting](TROUBLESHOOTING.md)
 - [Operations](OPERATIONS.md)

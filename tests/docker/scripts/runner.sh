@@ -54,6 +54,8 @@ done
 
 output="$(cat /tmp/agentictl-capabilities.json)"
 check_contains "$output" '"mode":"readonly"'
+check_contains "$output" '"modules":['
+check_contains "$output" '"id":"linux.packages"'
 
 output="$(ssh_ro health)"
 check_contains "$output" '"ok":true'
